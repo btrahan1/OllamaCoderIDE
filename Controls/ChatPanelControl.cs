@@ -26,14 +26,17 @@ public class ChatPanelControl : BaseStyledControl
     private RichTextBox _promptLogBox = null!;
     private System.Threading.CancellationTokenSource? _cts;
     private CheckBox _planningModeCheck = null!;
+    private PlanControl? _planControl;
+
     public event Action<string>? OnApplyCodeRequested;
     public event Action<string>? OnFileModified;
 
-    public ChatPanelControl(ILLMService service, SettingsService settingsService, TerminalControl terminal)
+    public ChatPanelControl(ILLMService service, SettingsService settingsService, TerminalControl terminal, PlanControl? planControl = null)
     {
         _currentService = service;
         _settingsService = settingsService;
         _terminal = terminal;
+        _planControl = planControl;
         Dock = DockStyle.Fill;
         Padding = new Padding(15);
         InitializeChat();
@@ -265,7 +268,7 @@ public class ChatPanelControl : BaseStyledControl
         await ProcessChatAsync(userPrompt);
     }
 
-    private async Task ProcessChatAsync(string userPrompt)
+    public async Task ProcessChatAsync(string userPrompt)
     {
         _cts = new System.Threading.CancellationTokenSource();
         _sendButton.Text = "Stop Task";
@@ -285,7 +288,9 @@ public class ChatPanelControl : BaseStyledControl
             bool isPlanning = _planningModeCheck.Checked;
             if (isPlanning)
             {
-                finalPrompt = "[SYSTEM: YOU ARE IN PLANNING MODE. DO NOT PERFORM ANY TOOL CALLS. PROVIDE A DETAILED ARCHITECTURAL PLAN OR BRAINSTORMING RESPONSE ONLY.]\n\n" + userPrompt;
+                finalPrompt = "[SYSTEM: YOU ARE IN PLANNING MODE. DO NOT PERFORM ANY TOOL CALLS. " + 
+                              "PROVIDE A DETAILED ARCHITECTURAL PLAN. YOU MUST WRAP YOUR STEP-BY-STEP " + 
+                              "LIST IN <plan>...</plan> TAGS (use - [ ] for each task) SO THE IDE CAN PARSE IT.]\n\n" + userPrompt;
             }
 
             // SINGLE TURN: No loop. One request, executable tools, then done.
@@ -297,6 +302,14 @@ public class ChatPanelControl : BaseStyledControl
 
             string displayMsg = System.Text.RegularExpressions.Regex.Replace(response, @"<think>.*?</think>", "", System.Text.RegularExpressions.RegexOptions.Singleline).Trim();
             AddMessage("AI", displayMsg);
+
+            // 1. Detect and load Plans
+            var planMatch = System.Text.RegularExpressions.Regex.Match(response, @"<plan>(.*?)</plan>", System.Text.RegularExpressions.RegexOptions.Singleline);
+            if (planMatch.Success && _planControl != null)
+            {
+                _planControl.LoadPlan(planMatch.Groups[1].Value.Trim());
+                AddMessage("System", "📋 AI generated an Implementation Plan. Switching to Plan view.");
+            }
 
             var tools = ToolParser.Parse(response);
             if (tools.Count > 0 && isPlanning)

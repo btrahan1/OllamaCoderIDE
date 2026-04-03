@@ -21,6 +21,8 @@ public partial class Form1 : Form
     private SettingsControl _settingsControl = null!;
     private FileExplorerControl _explorer = null!;
     private TerminalControl _terminal = null!;
+    private PlanControl _planControl = null!;
+    private SearchService _searchService = null!;
     private SplitContainer _mainSplitter = null!;
     private SplitContainer _rightContentSplitter = null!;
     private SplitContainer _editorChatSplitter = null!;
@@ -38,6 +40,7 @@ public partial class Form1 : Form
         _ollama = new OllamaService();
         _gemini = new GeminiService();
         _settings = new SettingsService();
+        _searchService = new SearchService();
         
         // Pick initial service
         _currentService = _settings.Current.Provider == LlmProvider.Gemini ? _gemini : _ollama;
@@ -134,13 +137,16 @@ public partial class Form1 : Form
             _gemini.ActiveFilePath = path;
         };
 
+        _planControl = new PlanControl { Dock = DockStyle.Fill, Visible = false };
+        _mainPanel.Controls.Add(_planControl);
+
         _settingsControl = new SettingsControl(_settings, _ollama, _gemini) { Dock = DockStyle.Fill, Visible = false };
         _mainPanel.Controls.Add(_settingsControl);
 
         _editorChatSplitter.Panel1.Controls.Add(_mainPanel);
 
         // Chat Panel - initially using current service
-        _chat = new ChatPanelControl(_currentService, _settings, _terminal) { Dock = DockStyle.Fill };
+        _chat = new ChatPanelControl(_currentService, _settings, _terminal, _planControl) { Dock = DockStyle.Fill };
         _chat.OnApplyCodeRequested += (code) => {
             string? currentPath = _tabEditor.CurrentFilePath;
             if (!string.IsNullOrEmpty(currentPath))
@@ -154,6 +160,24 @@ public partial class Form1 : Form
         _chat.OnFileModified += (path) => HandleFileChange(path);
 
         _editorChatSplitter.Panel2.Controls.Add(_chat);
+        
+        // Orchestrator: Execute a single step from the plan
+        _planControl.OnExecuteTask += async (item) => {
+            string root = _settings.Current.LastOpenedPath ?? AppContext.BaseDirectory;
+            // 1. Automatic RAG: Search for relevant context for this step
+            var ragFiles = _searchService.SearchContext(root, item.Title);
+            _currentService.ContextFiles = ragFiles; // Load RAG results into AI context
+            
+            // 2. Switch to Chat to show logic
+            OnSidebarViewChanged(SidebarView.AIChat);
+            
+            // 3. Command the AI to perform ONLY this step
+            string taskPrompt = $"[STEP REFINEMENT: {item.Title}]\n[CONTEXT: {item.Description}]\n" + 
+                                "Perform ONLY the actions described in this step. Use the provided context files and surgical_edit " +
+                                "to implement the change.";
+            await _chat.ProcessChatAsync(taskPrompt);
+            item.Status = PlanItemStatus.Completed;
+        };
 
         // Logic to swap services when settings change
         _sidebar.OnViewChanged += (view) => {
@@ -299,14 +323,22 @@ public partial class Form1 : Form
         {
             case SidebarView.Settings:
                 _tabEditor.Visible = false;
+                _planControl.Visible = false;
                 _settingsControl.Visible = true;
                 _settingsControl.BringToFront();
+                break;
+            case SidebarView.Plan:
+                _settingsControl.Visible = false;
+                _tabEditor.Visible = false;
+                _planControl.Visible = true;
+                _planControl.BringToFront();
                 break;
             case SidebarView.Explorer:
                 _mainSplitter.Panel1Collapsed = !_mainSplitter.Panel1Collapsed;
                 break;
             default:
                 _settingsControl.Visible = false;
+                _planControl.Visible = false;
                 _tabEditor.Visible = true;
                 _tabEditor.BringToFront();
                 break;

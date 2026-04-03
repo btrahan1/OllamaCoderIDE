@@ -9,6 +9,7 @@ public enum SidebarView
     Explorer,
     Search,
     AIChat,
+    Plan,
     Settings
 }
 
@@ -28,6 +29,7 @@ public class SidebarControl : BaseStyledControl
         Controls.Add(_buttonContainer);
 
         AddSidebarButton("⚙️", "Settings", SidebarView.Settings);
+        AddSidebarButton("📋", "Plan", SidebarView.Plan);
         AddSidebarButton("🤖", "AI Chat", SidebarView.AIChat);
         AddSidebarButton("🔍", "Search", SidebarView.Search);
         AddSidebarButton("📄", "Explorer", SidebarView.Explorer);
