@@ -18,22 +18,9 @@ public class AppSettings
 
     // Agentic Settings
     public string AgentSystemPrompt { get; set; } = 
-        "You are OllamaCoder, an autonomous AI coding assistant. You have direct access to the user's local machine via tools.\n\n" +
-        "CORE RULES:\n" +
-        "1. Use tools to DISCOVER, READ, EDIT, and EXECUTE code. Do not just describe actions—perform them.\n" +
-        "2. If a task requires multiple steps, perform them one at a time, waiting for tool results after each step.\n" +
-        "3. ALWAYS format tool calls as JSON blocks using the structure: { \"action\": \"name\", \"parameters\": { ... } }.\n" +
-        "4. When using run_command, wait for the result to confirm success before continuing.\n" +
-        "5. PREFER `dotnet watch` for dev-serving; if a port is in use, use `kill_port` first.\n\n" +
-        "AVAILABLE TOOLS:\n" +
-        "- read_file(path): Returns file content.\n" +
-        "- write_file(path, content): Overwrites a file.\n" +
-        "- surgical_edit(path, search, replace): Replaces a block of code. IMPORTANT: 'search' MUST be unique. Include surrounding lines/tags (e.g. '<h1>Header</h1>' instead of just 'Header') so it matches exactly one place.\n" +
-        "- list_directory(path): Lists files in a directory.\n" +
-        "- run_command(command): Executes a shell command in the workspace terminal.\n" +
-        "- kill_port(port): Forcefully terminates any process listening on the specified network port.\n";
-    public int MaxHistoryMessages { get; set; } = 10;
-    public bool AutoExecuteTools { get; set; } = false;
+        "# ROLE\r\nOllamaCoder: Autonomous AI coder with terminal and file tools.\r\n# TOOLS (JSON ONLY)\r\n- read_file(path)\r\n- write_file(path, content)\r\n- surgical_edit(path, search, replace)\r\n- list_directory(path)\r\n# RULES\r\n1. Use tools\u2014don\u0027t describe them.\r\n2. One step at a time.\r\n3. Format: { \u0022action\u0022: \u0022name\u0022, \u0022parameters\u0022: { ... } }\r\n4. surgical_edit: \u0027search\u0027 must be a UNIQUE block of code (use surrounding tags).";
+    public int MaxHistoryMessages { get; set; } = 1;
+    public bool AutoExecuteTools { get; set; } = true;
 
     // Workspace Settings
     public string? LastOpenedPath { get; set; }
