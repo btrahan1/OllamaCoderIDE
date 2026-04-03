@@ -9,7 +9,7 @@ public class AppSettings
     
     // Gemini Settings (Defaults from User)
     public string GeminiModel { get; set; } = "models/gemini-2.5-flash";
-    public string GeminiApiKey { get; set; } = "AIzaSyDFcywB6SVs2xuxFmLK88htsi_rTsCDzYY";
+    public string GeminiApiKey { get; set; } = "YOUR_API_KEY_HERE";
 
     public double Temperature { get; set; } = 0.3;
     public int TopK { get; set; } = 40;
