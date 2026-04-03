@@ -1,0 +1,22 @@
+# Build output
+bin/
+obj/
+*.user
+*.suo
+
+# Settings file (contains local config, not for source control)
+appsettings.json
+
+# Build error logs (temp files)
+build_error.txt
+build_error_2.txt
+build_out.txt
+
+# VS / Rider
+.vs/
+.idea/
+*.DotSettings.user
+
+# OS
+Thumbs.db
+.DS_Store
