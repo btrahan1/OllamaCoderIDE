@@ -10,7 +10,8 @@ namespace OllamaCoderIDE.Services;
 public class SearchService
 {
     private readonly string[] _ignoredExtensions = { ".dll", ".exe", ".pdb", ".png", ".jpg", ".zip", ".bin", ".obj" };
-    private readonly string[] _ignoredDirs = { ".git", "bin", "obj", ".vs", "node_modules", ".gemini_coder", ".ollama" };
+    private readonly string[] _ignoredDirs = { ".git", "bin", "obj", ".vs", "node_modules", ".gemini_coder", ".ollama", "lib", "dist", "wwwroot/lib" };
+    private readonly string[] _priorityExtensions = { ".razor", ".cs", ".css", ".html" };
 
     public List<FileContext> SearchContext(string rootPath, string query, int topK = 5)
     {
@@ -35,6 +36,10 @@ public class SearchService
                 // Simple scoring based on keyword frequency in filename and content
                 int score = 0;
                 string fileName = Path.GetFileName(file).ToLower();
+                string ext = Path.GetExtension(file).ToLower();
+
+                // Priority boost for source files
+                if (_priorityExtensions.Contains(ext)) score += 5;
                 
                 foreach (var kw in keywords)
                 {
@@ -79,6 +84,12 @@ public class SearchService
         if (_ignoredExtensions.Contains(ext)) return true;
 
         var parts = path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        return parts.Any(p => _ignoredDirs.Contains(p));
+        if (parts.Any(p => _ignoredDirs.Contains(p.ToLower()))) return true;
+
+        // Extra check for wwwroot/lib
+        if (path.Contains("wwwroot" + Path.DirectorySeparatorChar + "lib") || 
+            path.Contains("wwwroot/lib")) return true;
+
+        return false;
     }
 }

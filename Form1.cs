@@ -173,7 +173,8 @@ public partial class Form1 : Form
             
             // 3. Command the AI to perform ONLY this step
             string taskPrompt = $"[STEP REFINEMENT: {item.Title}]\n[CONTEXT: {item.Description}]\n" + 
-                                "Perform ONLY the actions described in this step. Use the provided context files and surgical_edit " +
+                                "Perform ONLY the actions described in this step. Use the provided context files " +
+                                "and the most appropriate tool (write_file for new files, surgical_edit for edits) " +
                                 "to implement the change.";
             await _chat.ProcessChatAsync(taskPrompt);
             _planControl.MarkItemCompleted(item);
@@ -187,10 +188,15 @@ public partial class Form1 : Form
                 var newService = _settings.Current.Provider == LlmProvider.Gemini ? _gemini : _ollama;
                 if (newService != _currentService)
                 {
+                    var oldService = _currentService;
                     _currentService = newService;
                     // Transfer state to new service
                     _currentService.ActiveFilePath = _tabEditor.CurrentFilePath;
                     _currentService.ActiveFileContent = _tabEditor.CurrentTextContent;
+                    _currentService.ContextFiles = oldService.ContextFiles;
+                    _currentService.ClearHistory(); // Avoid mixing history from different providers
+                    _currentService.LoadHistory();
+
                     if (!string.IsNullOrEmpty(_settings.Current.LastOpenedPath))
                         _currentService.SetWorkingDirectory(_settings.Current.LastOpenedPath);
                     
