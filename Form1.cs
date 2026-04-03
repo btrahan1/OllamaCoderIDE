@@ -176,7 +176,7 @@ public partial class Form1 : Form
                                 "Perform ONLY the actions described in this step. Use the provided context files and surgical_edit " +
                                 "to implement the change.";
             await _chat.ProcessChatAsync(taskPrompt);
-            item.Status = PlanItemStatus.Completed;
+            _planControl.MarkItemCompleted(item);
         };
 
         // Logic to swap services when settings change

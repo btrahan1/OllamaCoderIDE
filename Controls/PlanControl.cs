@@ -11,6 +11,7 @@ public class PlanControl : BaseStyledControl
 {
     private FlowLayoutPanel _taskListPanel = null!;
     private List<PlanItem> _items = new();
+    private Dictionary<PlanItem, ModernButton> _taskButtons = new();
     
     public event Action<PlanItem>? OnExecuteTask;
 
@@ -54,6 +55,7 @@ public class PlanControl : BaseStyledControl
     public void LoadPlan(string planText)
     {
         _items.Clear();
+        _taskButtons.Clear();
         _taskListPanel.Controls.Clear();
 
         // Simple parsing: Look for lines starting with "- [ ]" or digits like "1."
@@ -106,9 +108,28 @@ public class PlanControl : BaseStyledControl
             OnExecuteTask?.Invoke(item);
         };
 
+        _taskButtons[item] = executeBtn;
+
         container.Controls.Add(executeBtn);
         container.Controls.Add(titleLabel);
         
         _taskListPanel.Controls.Add(container);
+    }
+
+    public void MarkItemCompleted(PlanItem item)
+    {
+        if (this.InvokeRequired)
+        {
+            this.BeginInvoke(new Action(() => MarkItemCompleted(item)));
+            return;
+        }
+
+        if (_taskButtons.TryGetValue(item, out var btn))
+        {
+            item.Status = PlanItemStatus.Completed;
+            btn.Text = "✅ Complete";
+            btn.BackColor = ThemeManager.Success;
+            btn.Enabled = false;
+        }
     }
 }
