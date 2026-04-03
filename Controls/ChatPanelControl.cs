@@ -25,6 +25,7 @@ public class ChatPanelControl : BaseStyledControl
     private ModernButton _resetButton = null!;
     private RichTextBox _promptLogBox = null!;
     private System.Threading.CancellationTokenSource? _cts;
+    private CheckBox _planningModeCheck = null!;
     public event Action<string>? OnApplyCodeRequested;
     public event Action<string>? OnFileModified;
 
@@ -151,7 +152,7 @@ public class ChatPanelControl : BaseStyledControl
         var bottomContainer = new Panel
         {
             Dock = DockStyle.Bottom,
-            Height = 170
+            Height = 195
         };
 
         _promptInput = new TextBox
@@ -176,6 +177,16 @@ public class ChatPanelControl : BaseStyledControl
             TextAlign = ContentAlignment.MiddleRight
         };
 
+        _planningModeCheck = new CheckBox
+        {
+            Text = "Planning Mode (No Execution)",
+            Dock = DockStyle.Top,
+            Height = 25,
+            ForeColor = ThemeManager.TextMain,
+            Font = new Font("Segoe UI", 9f, FontStyle.Italic),
+            FlatStyle = FlatStyle.Flat
+        };
+
         _sendButton = new ModernButton
         {
             Text = "Send Message",
@@ -186,6 +197,7 @@ public class ChatPanelControl : BaseStyledControl
 
         bottomContainer.Controls.Add(_promptInput);
         bottomContainer.Controls.Add(_timerLabel);
+        bottomContainer.Controls.Add(_planningModeCheck);
         bottomContainer.Controls.Add(_sendButton);
 
         Controls.Add(_contentTabs);
@@ -269,8 +281,15 @@ public class ChatPanelControl : BaseStyledControl
             _sendButton.Text = "AI Thinking...";
             _sendButton.Update();
 
+            string finalPrompt = userPrompt;
+            bool isPlanning = _planningModeCheck.Checked;
+            if (isPlanning)
+            {
+                finalPrompt = "[SYSTEM: YOU ARE IN PLANNING MODE. DO NOT PERFORM ANY TOOL CALLS. PROVIDE A DETAILED ARCHITECTURAL PLAN OR BRAINSTORMING RESPONSE ONLY.]\n\n" + userPrompt;
+            }
+
             // SINGLE TURN: No loop. One request, executable tools, then done.
-            var response = await _currentService.ChatAsync(userPrompt, _settingsService.Current, addToHistory: true, leanContext: false, _cts.Token);
+            var response = await _currentService.ChatAsync(finalPrompt, _settingsService.Current, addToHistory: true, leanContext: false, _cts.Token);
             
             var thinkMatch = System.Text.RegularExpressions.Regex.Match(response, @"<think>(.*?)</think>", System.Text.RegularExpressions.RegexOptions.Singleline);
             if (thinkMatch.Success)
@@ -280,15 +299,22 @@ public class ChatPanelControl : BaseStyledControl
             AddMessage("AI", displayMsg);
 
             var tools = ToolParser.Parse(response);
-            foreach (var tool in tools)
+            if (tools.Count > 0 && isPlanning)
             {
-                _cts.Token.ThrowIfCancellationRequested();
-                _sendButton.Text = $"🔧 {tool.Action}...";
-                _sendButton.Update();
-                _timerLabel.Text = $"🔧 {tool.Action}...";
-                
-                string result = await HandleToolCall(tool, _cts.Token);
-                AddMessage("System", $"🔧 Tool [{tool.Action}]: {result}");
+                AddMessage("System", "ℹ️ AI proposed tools, but they were suppressed by Planning Mode.");
+            }
+            else
+            {
+                foreach (var tool in tools)
+                {
+                    _cts.Token.ThrowIfCancellationRequested();
+                    _sendButton.Text = $"🔧 {tool.Action}...";
+                    _sendButton.Update();
+                    _timerLabel.Text = $"🔧 {tool.Action}...";
+
+                    string result = await HandleToolCall(tool, _cts.Token);
+                    AddMessage("System", $"🔧 Tool [{tool.Action}]: {result}");
+                }
             }
 
             // PERMANENT COMMIT: Clean the intermediate history if any, then save the turn.

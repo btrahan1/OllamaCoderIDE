@@ -11,6 +11,7 @@ public interface ILLMService
     string? WorkingDirectory { get; }
     string? ActiveFileContent { get; set; }
     string? ActiveFilePath { get; set; }
+    List<FileContext> ContextFiles { get; set; }
     IReadOnlyList<ChatMessage> History { get; }
 
     event Action<string>? OnPromptSent;

@@ -22,6 +22,7 @@ public class OllamaService : ILLMService
     public string? WorkingDirectory { get; private set; }
     public string? ActiveFileContent { get; set; }
     public string? ActiveFilePath { get; set; }
+    public List<FileContext> ContextFiles { get; set; } = new();
     public IReadOnlyList<ChatMessage> History => _history.AsReadOnly();
     public event Action<string>? OnPromptSent;
 
@@ -127,7 +128,18 @@ public class OllamaService : ILLMService
         if (!leanContext && !string.IsNullOrEmpty(_currentProjectMap))
             fullSystemPrompt += "\n\n" + _currentProjectMap;
             
-        if (!string.IsNullOrEmpty(ActiveFilePath))
+        // 1. Add explicitly pinned context files
+        if (ContextFiles.Count > 0)
+        {
+            fullSystemPrompt += "\n\n## PINNED CONTEXT FILES (Reference these for your work):";
+            foreach (var file in ContextFiles)
+            {
+                fullSystemPrompt += $"\n---\nFile: {file.Path}\nContent:\n{file.Content}\n---";
+            }
+        }
+
+        // 2. Add active file context (if not already pinned)
+        if (!string.IsNullOrEmpty(ActiveFilePath) && !ContextFiles.Any(f => f.Path == ActiveFilePath))
             fullSystemPrompt += $"\n\n## ACTIVE FILE CONTEXT:\nPath: {ActiveFilePath}\nContent:\n{ActiveFileContent}";
 
         var messages = new List<ChatMessage> { new ChatMessage("system", fullSystemPrompt) };

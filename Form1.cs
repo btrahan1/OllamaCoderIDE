@@ -15,7 +15,7 @@ public partial class Form1 : Form
     private ILLMService _currentService;
     private readonly SettingsService _settings;
     private SidebarControl _sidebar = null!;
-    private EditorControl _editor = null!;
+    private EditorTabControl _tabEditor = null!;
     private ChatPanelControl _chat = null!;
     private ToolbarControl _toolbar = null!;
     private SettingsControl _settingsControl = null!;
@@ -126,8 +126,13 @@ public partial class Form1 : Form
         _rightContentSplitter.Panel2.Controls.Add(_terminal);
 
         _mainPanel = new Panel { Dock = DockStyle.Fill, BackColor = ThemeManager.Background };
-        _editor = new EditorControl { Dock = DockStyle.Fill };
-        _mainPanel.Controls.Add(_editor);
+        _tabEditor = new EditorTabControl { Dock = DockStyle.Fill };
+        _mainPanel.Controls.Add(_tabEditor);
+        _tabEditor.OnContextChanged += () => SyncContextToServices();
+        _tabEditor.OnFileSelected += (path) => {
+            _ollama.ActiveFilePath = path;
+            _gemini.ActiveFilePath = path;
+        };
 
         _settingsControl = new SettingsControl(_settings, _ollama, _gemini) { Dock = DockStyle.Fill, Visible = false };
         _mainPanel.Controls.Add(_settingsControl);
@@ -137,11 +142,12 @@ public partial class Form1 : Form
         // Chat Panel - initially using current service
         _chat = new ChatPanelControl(_currentService, _settings, _terminal) { Dock = DockStyle.Fill };
         _chat.OnApplyCodeRequested += (code) => {
-            if (!string.IsNullOrEmpty(_editor.CurrentFilePath))
+            string? currentPath = _tabEditor.CurrentFilePath;
+            if (!string.IsNullOrEmpty(currentPath))
             {
                 try {
-                    File.WriteAllText(_editor.CurrentFilePath, code);
-                    HandleFileChange(_editor.CurrentFilePath);
+                    File.WriteAllText(currentPath, code);
+                    HandleFileChange(currentPath);
                 } catch { /* Handle lock or write error */ }
             }
         };
@@ -159,8 +165,8 @@ public partial class Form1 : Form
                 {
                     _currentService = newService;
                     // Transfer state to new service
-                    _currentService.ActiveFilePath = _editor.CurrentFilePath;
-                    _currentService.ActiveFileContent = _editor.TextContent;
+                    _currentService.ActiveFilePath = _tabEditor.CurrentFilePath;
+                    _currentService.ActiveFileContent = _tabEditor.CurrentTextContent;
                     if (!string.IsNullOrEmpty(_settings.Current.LastOpenedPath))
                         _currentService.SetWorkingDirectory(_settings.Current.LastOpenedPath);
                     
@@ -193,16 +199,18 @@ public partial class Form1 : Form
         _ollama.RefreshProjectMap();
         _gemini.RefreshProjectMap();
 
-        // 3. Refresh Editor if this is the active file
-        if (path.Equals(_editor.CurrentFilePath, StringComparison.OrdinalIgnoreCase))
-        {
-            try {
-                string content = File.ReadAllText(path);
-                _editor.TextContent = content;
+        // 3. Refresh Editor Tab if this file is open
+        try {
+            string content = File.ReadAllText(path);
+            _tabEditor.RefreshFile(path, content);
+            
+            // Sync current active tab if it matches
+            if (path.Equals(_tabEditor.CurrentFilePath, StringComparison.OrdinalIgnoreCase))
+            {
                 _ollama.ActiveFileContent = content;
                 _gemini.ActiveFileContent = content;
-            } catch { }
-        }
+            }
+        } catch { }
     }
 
     private void UpdateToolbarStatus()
@@ -223,6 +231,20 @@ public partial class Form1 : Form
         UpdateToolbarStatus();
     }
 
+    private void SyncContextToServices()
+    {
+        var contextFiles = _tabEditor.GetContextFiles()
+            .Select(f => new FileContext 
+            { 
+                Path = f.Path, 
+                FileName = Path.GetFileName(f.Path), 
+                Content = f.Content 
+            }).ToList();
+
+        _ollama.ContextFiles = contextFiles;
+        _gemini.ContextFiles = contextFiles;
+    }
+
     private void OpenFolder(string path)
     {
         _explorer.LoadDirectory(path);
@@ -238,11 +260,9 @@ public partial class Form1 : Form
     {
         try {
             string content = File.ReadAllText(path);
-            _editor.TextContent = content;
-            _editor.SetLanguage(Path.GetExtension(path));
-            _editor.CurrentFilePath = path;
+            _tabEditor.OpenFile(path, content);
 
-            // Sync with ALL AI contexts
+            // Sync with ALL AI contexts (Active File)
             _ollama.ActiveFilePath = path;
             _ollama.ActiveFileContent = content;
             _gemini.ActiveFilePath = path;
@@ -278,7 +298,7 @@ public partial class Form1 : Form
         switch (view)
         {
             case SidebarView.Settings:
-                _editor.Visible = false;
+                _tabEditor.Visible = false;
                 _settingsControl.Visible = true;
                 _settingsControl.BringToFront();
                 break;
@@ -287,8 +307,8 @@ public partial class Form1 : Form
                 break;
             default:
                 _settingsControl.Visible = false;
-                _editor.Visible = true;
-                _editor.BringToFront();
+                _tabEditor.Visible = true;
+                _tabEditor.BringToFront();
                 break;
         }
     }
