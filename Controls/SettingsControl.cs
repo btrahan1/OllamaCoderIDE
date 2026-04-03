@@ -66,6 +66,34 @@ public class SettingsControl : BaseStyledControl
         layout.Controls.Add(CreateNumericSetting("Top P:", 0, 1, 0.05m, _settingsService.Current.TopP, (val) => _settingsService.Current.TopP = (double)val));
         layout.Controls.Add(CreateNumericSetting("Context Size:", 1024, 32768, 1024, _settingsService.Current.NumCtx, (val) => _settingsService.Current.NumCtx = (int)val));
 
+        // New Agentic Settings UI
+        layout.Controls.Add(CreateLabel("Agent System Prompt:"));
+        var systemPromptBox = new TextBox
+        {
+            Width = 400,
+            Height = 80,
+            Multiline = true,
+            BackColor = ThemeManager.Surface,
+            ForeColor = ThemeManager.TextMain,
+            Text = _settingsService.Current.AgentSystemPrompt,
+            BorderStyle = BorderStyle.FixedSingle
+        };
+        systemPromptBox.TextChanged += (s, e) => _settingsService.Current.AgentSystemPrompt = systemPromptBox.Text;
+        layout.Controls.Add(systemPromptBox);
+
+        layout.Controls.Add(CreateNumericSetting("Max History Messages:", 1, 50, 1, _settingsService.Current.MaxHistoryMessages, (val) => _settingsService.Current.MaxHistoryMessages = (int)val));
+
+        var autoExecCheck = new CheckBox
+        {
+            Text = "Auto-Execute Tools (Advanced)",
+            ForeColor = ThemeManager.TextMain,
+            Checked = _settingsService.Current.AutoExecuteTools,
+            AutoSize = true,
+            Margin = new Padding(0, 15, 0, 0)
+        };
+        autoExecCheck.CheckedChanged += (s, e) => _settingsService.Current.AutoExecuteTools = autoExecCheck.Checked;
+        layout.Controls.Add(autoExecCheck);
+
         var saveBtn = new ModernButton
         {
             Text = "Save Settings",
