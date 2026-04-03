@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using OllamaCoderIDE.Models;
 
 namespace OllamaCoderIDE.Services;
@@ -17,6 +18,13 @@ public class OllamaService
     private readonly HttpClient _httpClient;
     private const string BaseUrl = "http://localhost:11434/api";
     private readonly List<ChatMessage> _history = new();
+    private readonly ProjectMapService _projectMapService = new();
+    
+    private string _currentProjectMap = "";
+    public string? WorkingDirectory { get; private set; }
+    public string? ActiveFileContent { get; set; }
+    public string? ActiveFilePath { get; set; }
+    public IReadOnlyList<ChatMessage> History => _history.AsReadOnly();
 
     public OllamaService()
     {
@@ -25,6 +33,57 @@ public class OllamaService
     }
 
     public void Reset() => _history.Clear();
+
+    public void SetWorkingDirectory(string path)
+    {
+        WorkingDirectory = path;
+        RefreshProjectMap();
+        LoadHistory();
+    }
+
+    public void RefreshProjectMap()
+    {
+        if (!string.IsNullOrEmpty(WorkingDirectory))
+        {
+            _currentProjectMap = _projectMapService.BuildMap(WorkingDirectory);
+        }
+    }
+
+    private string GetHistoryPath()
+    {
+        if (string.IsNullOrEmpty(WorkingDirectory)) return string.Empty;
+        var dir = Path.Combine(WorkingDirectory, ".ollama");
+        if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+        return Path.Combine(dir, "history.json");
+    }
+
+    public void LoadHistory()
+    {
+        _history.Clear();
+        var path = GetHistoryPath();
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+
+        try
+        {
+            var json = File.ReadAllText(path);
+            var items = JsonSerializer.Deserialize<List<ChatMessage>>(json);
+            if (items != null) _history.AddRange(items);
+        }
+        catch { /* Fallback to empty history */ }
+    }
+
+    public void SaveHistory()
+    {
+        var path = GetHistoryPath();
+        if (string.IsNullOrEmpty(path)) return;
+
+        try
+        {
+            var json = JsonSerializer.Serialize(_history, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(path, json);
+        }
+        catch { /* Ignore save errors */ }
+    }
 
     public async Task<List<string>> GetModelsAsync()
     {
@@ -51,33 +110,29 @@ public class OllamaService
 
     public async Task<string> ChatAsync(string prompt, AppSettings settings)
     {
-        // 1. Add user message to history
         _history.Add(new ChatMessage("user", prompt));
 
-        // 2. Apply sliding window
         if (_history.Count > settings.MaxHistoryMessages)
         {
             int toRemove = _history.Count - settings.MaxHistoryMessages;
             _history.RemoveRange(0, toRemove);
         }
 
-        // 3. Prepare messages (starting with system prompt)
-        var messages = new List<ChatMessage> { new ChatMessage("system", settings.AgentSystemPrompt) };
+        var fullSystemPrompt = settings.AgentSystemPrompt;
+        if (!string.IsNullOrEmpty(_currentProjectMap))
+            fullSystemPrompt += "\n\n" + _currentProjectMap;
+        if (!string.IsNullOrEmpty(ActiveFilePath))
+            fullSystemPrompt += $"\n\n## ACTIVE FILE CONTEXT:\nPath: {ActiveFilePath}\nContent:\n{ActiveFileContent}";
+
+        var messages = new List<ChatMessage> { new ChatMessage("system", fullSystemPrompt) };
         messages.AddRange(_history);
 
-        // 4. Request body for /api/chat
         var requestBody = new
         {
             model = settings.SelectedModel,
             messages = messages,
             stream = false,
-            options = new
-            {
-                temperature = settings.Temperature,
-                top_k = settings.TopK,
-                top_p = settings.TopP,
-                num_ctx = settings.NumCtx
-            }
+            options = new { temperature = settings.Temperature, num_ctx = Math.Max(settings.NumCtx, 8192) }
         };
 
         var response = await _httpClient.PostAsJsonAsync($"{BaseUrl}/chat", requestBody);
@@ -88,8 +143,8 @@ public class OllamaService
         
         string assistantContent = doc.RootElement.GetProperty("message").GetProperty("content").GetString() ?? "";
         
-        // 5. Add assistant response to history
         _history.Add(new ChatMessage("assistant", assistantContent));
+        SaveHistory();
 
         return assistantContent;
     }

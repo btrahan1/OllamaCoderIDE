@@ -1,0 +1,19 @@
+  Determining projects to restore...
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj : warning NU1603: OllamaCoderIDE depends on Scintilla5.NET (>= 5.4.1) but Scintilla5.NET 5.4.1 was not found. Scintilla5.NET 5.5.0 was resolved instead. [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.sln]
+  All projects are up-to-date for restore.
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj : warning NU1603: OllamaCoderIDE depends on Scintilla5.NET (>= 5.4.1) but Scintilla5.NET 5.4.1 was not found. Scintilla5.NET 5.5.0 was resolved instead.
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\FileExplorerControl.cs(63,17): warning CS8602: Dereference of a possibly null reference. [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\EditorControl.cs(23,20): error WFO1000: Property 'CurrentFilePath' does not configure the code serialization for its property content [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+
+Build FAILED.
+
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj : warning NU1603: OllamaCoderIDE depends on Scintilla5.NET (>= 5.4.1) but Scintilla5.NET 5.4.1 was not found. Scintilla5.NET 5.5.0 was resolved instead. [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.sln]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj : warning NU1603: OllamaCoderIDE depends on Scintilla5.NET (>= 5.4.1) but Scintilla5.NET 5.4.1 was not found. Scintilla5.NET 5.5.0 was resolved instead.
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\FileExplorerControl.cs(63,17): warning CS8602: Dereference of a possibly null reference. [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\EditorControl.cs(23,20): error WFO1000: Property 'CurrentFilePath' does not configure the code serialization for its property content [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+    3 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:00.89
+
+Workload updates are available. Run `dotnet workload list` for more information.

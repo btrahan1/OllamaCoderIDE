@@ -20,6 +20,14 @@ public static class ThemeManager
     public static readonly Color Warning = Color.FromArgb(234, 179, 8);
     public static readonly Color Error = Color.FromArgb(239, 68, 68);
 
+    // Syntax Highlighting Colors
+    public static readonly Color SyntaxKeyword = Color.FromArgb(86, 156, 214); // Light Blue
+    public static readonly Color SyntaxComment = Color.FromArgb(106, 153, 85); // Green
+    public static readonly Color SyntaxString = Color.FromArgb(214, 157, 133); // Peach/Orange
+    public static readonly Color SyntaxNumber = Color.FromArgb(181, 206, 168); // Soft Green/Yellow
+    public static readonly Color SyntaxType = Color.FromArgb(78, 201, 176);    // Teal
+    public static readonly Color SyntaxFunction = Color.FromArgb(220, 220, 170); // Yellowish
+
     public static readonly Font HeaderFont = new Font("Segoe UI", 12f, FontStyle.Bold);
     public static readonly Font TextFont = new Font("Segoe UI", 10f, FontStyle.Regular);
     public static readonly Font CodeFont = new Font("Consolas", 11f, FontStyle.Regular);

@@ -9,7 +9,10 @@ namespace OllamaCoderIDE.Controls;
 public class ChatMessageControl : BaseStyledControl
 {
     private readonly string _sender;
-    private readonly string _message;
+    private string _message;
+    private RichTextBox _contentBox = null!;
+    private TableLayoutPanel _table = null!;
+    private List<string> _codes = new();
     public event Action<string>? OnApplyCode;
 
     public ChatMessageControl(string sender, string message)
@@ -25,33 +28,60 @@ public class ChatMessageControl : BaseStyledControl
         InitializeComponents();
     }
 
-    private void InitializeComponents()
+    public void Append(string token)
     {
-        // Extract code blocks
-        var codes = new List<string>();
+        _message += token;
+        _table.SuspendLayout();
+        _contentBox.Text = _message;
+        _table.ResumeLayout(false);
+    }
+
+    public void MarkAsComplete()
+    {
+        // Re-extract code blocks and add buttons
+        _codes.Clear();
         var matches = Regex.Matches(_message, @"```(?:csharp|cs|)?\n?(.*?)```", RegexOptions.Singleline);
         foreach (Match m in matches)
         {
             var code = m.Groups[1].Value.Trim();
-            if (!string.IsNullOrEmpty(code)) codes.Add(code);
+            if (!string.IsNullOrEmpty(code)) _codes.Add(code);
         }
 
-        int rows = 2 + codes.Count; // header + content + N buttons
-        var table = new TableLayoutPanel
+        // Add buttons if codes found
+        for (int i = 0; i < _codes.Count; i++)
+        {
+            var idx = i;
+            var btn = new ModernButton
+            {
+                Text = "⬇ Apply Code Snippet",
+                Width = 200,
+                Height = 34,
+                Dock = DockStyle.Left,
+                BackColor = ThemeManager.Primary,
+                Font = new Font(ThemeManager.TextFont.FontFamily, 8f),
+                Margin = new Padding(0, 4, 0, 4)
+            };
+            btn.Click += (s, e) => OnApplyCode?.Invoke(_codes[idx]);
+            _table.RowStyles.Add(new RowStyle(SizeType.Absolute, 42f));
+            _table.Controls.Add(btn, 0, 2 + i);
+        }
+    }
+
+    private void InitializeComponents()
+    {
+        _table = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = rows,
+            RowCount = 2,
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Padding = new Padding(0),
             Margin = new Padding(0)
         };
-        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        table.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // header
-        table.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // content
-        for (int i = 0; i < codes.Count; i++)
-            table.RowStyles.Add(new RowStyle(SizeType.Absolute, 42f));
+        _table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        _table.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // header
+        _table.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // content
 
         // Sender header
         var header = new Label
@@ -63,10 +93,9 @@ public class ChatMessageControl : BaseStyledControl
             Dock = DockStyle.Fill,
             Margin = new Padding(0, 0, 0, 4)
         };
-        table.Controls.Add(header, 0, 0);
+        _table.Controls.Add(header, 0, 0);
 
-        // Selectable content box — full width via TableLayoutPanel column
-        var contentBox = new RichTextBox
+        _contentBox = new RichTextBox
         {
             Text = _message,
             Font = ThemeManager.TextFont,
@@ -79,28 +108,9 @@ public class ChatMessageControl : BaseStyledControl
             Dock = DockStyle.Fill,
             Margin = new Padding(0, 0, 0, 4)
         };
-        // Auto-size the RichTextBox height to its content
-        contentBox.ContentsResized += (s, e) => contentBox.Height = e.NewRectangle.Height + 4;
-        table.Controls.Add(contentBox, 0, 1);
+        _contentBox.ContentsResized += (s, e) => _contentBox.Height = e.NewRectangle.Height + 4;
+        _table.Controls.Add(_contentBox, 0, 1);
 
-        // Apply button for each code block found
-        for (int i = 0; i < codes.Count; i++)
-        {
-            var code = codes[i]; // capture for closure
-            var btn = new ModernButton
-            {
-                Text = "⬇ Apply Code Snippet",
-                Width = 200,
-                Height = 34,
-                Dock = DockStyle.Left,
-                BackColor = ThemeManager.Primary,
-                Font = new Font(ThemeManager.TextFont.FontFamily, 8f),
-                Margin = new Padding(0, 4, 0, 4)
-            };
-            btn.Click += (s, e) => OnApplyCode?.Invoke(code);
-            table.Controls.Add(btn, 0, 2 + i);
-        }
-
-        Controls.Add(table);
+        Controls.Add(_table);
     }
 }

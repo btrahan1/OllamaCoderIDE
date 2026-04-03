@@ -30,11 +30,14 @@ public class ToolParser
         }
         catch { /* Not a pure JSON response */ }
 
-        // Fallback: Use Regex to find JSON-like blocks
-        // Specifically looking for { "action": "...", "parameters": { ... } }
-        var matches = Regex.Matches(content, @"\{[^{}]*""action""[^{}]*\}", RegexOptions.Singleline);
+        // Fallback: Use Regex to find JSON-like blocks with balanced braces
+        // This handles nested objects in "parameters"
+        var matches = Regex.Matches(content, @"\{(?:[^{}]|(?<open>\{)|(?<-open>\}))+(?(open)(?!))\}", RegexOptions.Singleline);
+        
         foreach (Match match in matches)
         {
+            if (!match.Value.Contains("\"action\"", StringComparison.OrdinalIgnoreCase)) continue;
+
             try
             {
                 var call = JsonSerializer.Deserialize<ToolCall>(match.Value, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
