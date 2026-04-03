@@ -5,32 +5,65 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Reflection;
 using OllamaCoderIDE.Services;
+using OllamaCoderIDE.Models;
 
 namespace OllamaCoderIDE.Controls;
 
 public class ChatPanelControl : BaseStyledControl
 {
-    private readonly OllamaService _ollama;
+    private ILLMService _currentService;
     private readonly SettingsService _settingsService;
     private readonly TerminalControl _terminal;
     private TabControl _contentTabs = null!;
-    private Panel _chatHistoryContainer = null!;
+    private FlowLayoutPanel _chatHistoryContainer = null!;
     private RichTextBox _reasoningBox = null!;
     private TextBox _promptInput = null!;
     private ModernButton _sendButton = null!;
     private Label _timerLabel = null!;
     private ModernButton _resetButton = null!;
+    private RichTextBox _promptLogBox = null!;
+    private System.Threading.CancellationTokenSource? _cts;
     public event Action<string>? OnApplyCodeRequested;
+    public event Action<string>? OnFileModified;
 
-    public ChatPanelControl(OllamaService ollama, SettingsService settingsService, TerminalControl terminal)
+    public ChatPanelControl(ILLMService service, SettingsService settingsService, TerminalControl terminal)
     {
-        _ollama = ollama;
+        _currentService = service;
         _settingsService = settingsService;
         _terminal = terminal;
         Dock = DockStyle.Fill;
         Padding = new Padding(15);
         InitializeChat();
+        SubscribeToPrompts();
+    }
+
+    private void SubscribeToPrompts()
+    {
+        _currentService.OnPromptSent += (log) => {
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action(() => AppendPromptLog(log)));
+            }
+            else
+            {
+                AppendPromptLog(log);
+            }
+        };
+    }
+
+    private void AppendPromptLog(string log)
+    {
+        _promptLogBox.AppendText($"--- PROMPT SENT AT {DateTime.Now:HH:mm:ss} ---\n");
+        _promptLogBox.AppendText(log + "\n\n");
+        _promptLogBox.ScrollToCaret();
+    }
+
+    public void UpdateService(ILLMService service)
+    {
+        _currentService = service;
+        SubscribeToPrompts(); // Re-hook for the new provider
     }
 
     private void InitializeChat()
@@ -57,10 +90,11 @@ public class ChatPanelControl : BaseStyledControl
             Font = new Font("Segoe UI", 8f)
         };
         _resetButton.Click += (s, e) => {
-            _ollama.Reset();
+            _currentService.Reset();
             _chatHistoryContainer.Controls.Clear();
             _reasoningBox.Clear();
-            AddMessage("System", "Chat history and session context cleared.");
+            _promptLogBox.Clear();
+            AddMessage("System", "Chat history and session context cleared. Persistent history file wiped.");
         };
 
         headerPanel.Controls.Add(header);
@@ -69,12 +103,19 @@ public class ChatPanelControl : BaseStyledControl
         _contentTabs = new TabControl { Dock = DockStyle.Fill };
         
         var chatPage = new TabPage("Chat") { BackColor = ThemeManager.Background };
-        _chatHistoryContainer = new Panel
+        _chatHistoryContainer = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
             AutoScroll = true,
             BackColor = ThemeManager.Surface,
-            Padding = new Padding(10)
+            Padding = new Padding(10),
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false
+        };
+        // Ensure child controls resize with the panel width
+        _chatHistoryContainer.Resize += (s, e) => {
+            foreach (Control ctrl in _chatHistoryContainer.Controls)
+                ctrl.Width = _chatHistoryContainer.Width - 30; // Match AddMessage logic
         };
         chatPage.Controls.Add(_chatHistoryContainer);
 
@@ -93,16 +134,30 @@ public class ChatPanelControl : BaseStyledControl
         _contentTabs.TabPages.Add(chatPage);
         _contentTabs.TabPages.Add(thinkPage);
 
+        var promptPage = new TabPage("Prompts 📜") { BackColor = ThemeManager.Background };
+        _promptLogBox = new RichTextBox
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.FromArgb(20, 20, 25),
+            ForeColor = Color.LightGreen,
+            Font = new Font("Consolas", 9f),
+            ReadOnly = true,
+            BorderStyle = BorderStyle.None
+        };
+        _promptLogBox.Text = "Full prompt logs will appear here when you send a message.";
+        promptPage.Controls.Add(_promptLogBox);
+        _contentTabs.TabPages.Add(promptPage);
+
         var bottomContainer = new Panel
         {
             Dock = DockStyle.Bottom,
-            Height = 130
+            Height = 170
         };
 
         _promptInput = new TextBox
         {
             Dock = DockStyle.Top,
-            Height = 60,
+            Height = 100,
             Multiline = true,
             BackColor = ThemeManager.Surface,
             ForeColor = ThemeManager.TextMain,
@@ -158,29 +213,38 @@ public class ChatPanelControl : BaseStyledControl
     public void ResetUI()
     {
         _chatHistoryContainer.Controls.Clear();
-        foreach (var msg in _ollama.History)
+        foreach (var msg in _currentService.History)
         {
             AddMessage(msg.role == "user" ? "User" : "AI", msg.content);
         }
         
-        if (_ollama.History.Count == 0)
+        if (_currentService.History.Count == 0)
         {
-            AddMessage("System", $"Workspace loaded: {_ollama.WorkingDirectory}");
+            AddMessage("System", $"Workspace loaded: {_currentService.WorkingDirectory}");
         }
     }
 
     private ChatMessageControl AddMessage(string sender, string message)
     {
-        var msg = new ChatMessageControl(sender, message);
+        var msg = new ChatMessageControl(sender, message)
+        {
+            Width = _chatHistoryContainer.Width - 30 // Account for scrollbar
+        };
         msg.OnApplyCode += (code) => OnApplyCodeRequested?.Invoke(code);
         _chatHistoryContainer.Controls.Add(msg);
-        msg.SendToBack(); // Force to bottom of Dock=Top stack
         _chatHistoryContainer.ScrollControlIntoView(msg);
         return msg;
     }
 
     private async Task OnSendClick()
     {
+        if (_cts != null)
+        {
+            _cts.Cancel();
+            AddMessage("System", "🛑 Task cancellation requested by user.");
+            return;
+        }
+
         string userPrompt = _promptInput.Text.Trim();
         if (string.IsNullOrEmpty(userPrompt)) return;
 
@@ -191,55 +255,53 @@ public class ChatPanelControl : BaseStyledControl
 
     private async Task ProcessChatAsync(string userPrompt)
     {
-        _sendButton.Enabled = false;
+        _cts = new System.Threading.CancellationTokenSource();
+        _sendButton.Text = "Stop Task";
+        _sendButton.BackColor = Color.Maroon;
+        _promptInput.Enabled = false;
+        
         _timerLabel.Text = "Generating...";
         _reasoningBox.Clear();
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            string currentPrompt = userPrompt;
-            bool processing = true;
-            int loopCount = 0;
+            _sendButton.Text = "AI Thinking...";
+            _sendButton.Update();
 
-            while (processing && loopCount < 5)
+            // SINGLE TURN: No loop. One request, executable tools, then done.
+            var response = await _currentService.ChatAsync(userPrompt, _settingsService.Current, addToHistory: true, leanContext: false, _cts.Token);
+            
+            var thinkMatch = System.Text.RegularExpressions.Regex.Match(response, @"<think>(.*?)</think>", System.Text.RegularExpressions.RegexOptions.Singleline);
+            if (thinkMatch.Success)
+                _reasoningBox.Text = thinkMatch.Groups[1].Value.Trim();
+
+            string displayMsg = System.Text.RegularExpressions.Regex.Replace(response, @"<think>.*?</think>", "", System.Text.RegularExpressions.RegexOptions.Singleline).Trim();
+            AddMessage("AI", displayMsg);
+
+            var tools = ToolParser.Parse(response);
+            foreach (var tool in tools)
             {
-                loopCount++;
-                var response = await _ollama.ChatAsync(currentPrompt, _settingsService.Current);
+                _cts.Token.ThrowIfCancellationRequested();
+                _sendButton.Text = $"🔧 {tool.Action}...";
+                _sendButton.Update();
+                _timerLabel.Text = $"🔧 {tool.Action}...";
                 
-                // Extract thinking if present for the thinking tab
-                var thinkMatch = System.Text.RegularExpressions.Regex.Match(response, @"<think>(.*?)</think>", System.Text.RegularExpressions.RegexOptions.Singleline);
-                if (thinkMatch.Success)
-                    _reasoningBox.Text = thinkMatch.Groups[1].Value.Trim();
-
-                // Remove think tags for the main chat
-                string displayMsg = System.Text.RegularExpressions.Regex.Replace(response, @"<think>.*?</think>", "", System.Text.RegularExpressions.RegexOptions.Singleline).Trim();
-                
-                AddMessage("AI", displayMsg);
-
-                // Parse for tool calls
-                var tools = ToolParser.Parse(response);
-                if (tools.Count > 0)
-                {
-                    var toolResults = new List<string>();
-                    foreach (var tool in tools)
-                    {
-                        _timerLabel.Text = $"🔧 {tool.Action}...";
-                        string result = await HandleToolCall(tool);
-                        toolResults.Add(result);
-                        AddMessage("System", $"🔧 Tool [{tool.Action}]: {result}");
-                    }
-                    currentPrompt = "TOOL RESULTS:\n" + string.Join("\n", toolResults);
-                    processing = true;
-                }
-                else
-                {
-                    processing = false;
-                }
+                string result = await HandleToolCall(tool, _cts.Token);
+                AddMessage("System", $"🔧 Tool [{tool.Action}]: {result}");
             }
+
+            // PERMANENT COMMIT: Clean the intermediate history if any, then save the turn.
+            // Since it's a single turn now, we just save what we have.
+            _currentService.SaveHistory();
             
             sw.Stop();
-            _timerLabel.Text = $"Agent Loop Complete | {sw.Elapsed.TotalSeconds:F1}s";
+            _timerLabel.Text = $"Action Complete | {sw.Elapsed.TotalSeconds:F1}s";
+        }
+        catch (OperationCanceledException)
+        {
+            sw.Stop();
+            _timerLabel.Text = "Task Stopped by User";
         }
         catch (Exception ex)
         {
@@ -249,11 +311,29 @@ public class ChatPanelControl : BaseStyledControl
         }
         finally
         {
-            _sendButton.Enabled = true;
+            ResetUIState();
         }
     }
 
-    private async Task<string> HandleToolCall(ToolCall tool)
+    private void ResetUIState()
+    {
+        if (this.InvokeRequired)
+        {
+            this.BeginInvoke(new Action(ResetUIState));
+            return;
+        }
+
+        _cts?.Dispose();
+        _cts = null;
+        _sendButton.Text = "Send Message";
+        _sendButton.BackColor = ThemeManager.Primary;
+        _sendButton.Enabled = true;
+        _sendButton.Update(); // Force redraw
+        _promptInput.Enabled = true;
+        _promptInput.Focus();
+    }
+
+    private async Task<string> HandleToolCall(ToolCall tool, System.Threading.CancellationToken ct)
     {
         try
         {
@@ -266,8 +346,15 @@ public class ChatPanelControl : BaseStyledControl
                 case "write_file":
                     string writePath = ResolveFinalPath(tool.Parameters.GetValueOrDefault("path")?.ToString());
                     string content = tool.Parameters.GetValueOrDefault("content")?.ToString() ?? "";
+                    
+                    // PROACTIVE: Ensure the target directory exists
+                    string? dir = Path.GetDirectoryName(writePath);
+                    if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                        Directory.CreateDirectory(dir);
+
                     File.WriteAllText(writePath, content);
-                    _ollama.RefreshProjectMap();
+                    _currentService.RefreshProjectMap();
+                    OnFileModified?.Invoke(writePath);
                     return $"Success: Wrote to {writePath}";
 
                 case "surgical_edit":
@@ -275,13 +362,14 @@ public class ChatPanelControl : BaseStyledControl
                     string search = tool.Parameters.GetValueOrDefault("search")?.ToString() ?? "";
                     string replace = tool.Parameters.GetValueOrDefault("replace")?.ToString() ?? "";
                     var editResult = SurgicalEditor.ReplaceContent(editPath, search, replace);
-                    _ollama.RefreshProjectMap();
+                    _currentService.RefreshProjectMap();
+                    if (editResult.StartsWith("Success")) OnFileModified?.Invoke(editPath);
                     return editResult;
 
                 case "run_command":
                     string command = tool.Parameters.GetValueOrDefault("command")?.ToString() ?? "";
-                    var cmdResult = await _terminal.RunCommandAndCapture(command);
-                    _ollama.RefreshProjectMap();
+                    var cmdResult = await _terminal.RunCommandAndCapture(command, 5000, ct); 
+                    _currentService.RefreshProjectMap();
                     return cmdResult;
 
                 case "kill_port":
@@ -293,14 +381,14 @@ public class ChatPanelControl : BaseStyledControl
                                      "Select-Object -ExpandProperty OwningProcess -First 1 | " +
                                      "ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }";
                     
-                    await _terminal.RunCommandAndCapture(killCmd);
+                    await _terminal.RunCommandAndCapture(killCmd, 5000, ct);
                     return $"Success: Attempted to terminate process on port {portStr}.";
 
                 case "list_directory":
                     string dirPath = tool.Parameters.GetValueOrDefault("path")?.ToString() ?? ".";
                     // If dirPath is relative, join with WorkingDirectory
-                    if (!Path.IsPathRooted(dirPath) && !string.IsNullOrEmpty(_ollama.WorkingDirectory))
-                        dirPath = Path.Combine(_ollama.WorkingDirectory, dirPath);
+                    if (!Path.IsPathRooted(dirPath) && !string.IsNullOrEmpty(_currentService.WorkingDirectory))
+                        dirPath = Path.Combine(_currentService.WorkingDirectory, dirPath);
 
                     if (!Directory.Exists(dirPath)) return $"Error: Directory '{dirPath}' not found.";
                     var info = new DirectoryInfo(dirPath);
@@ -310,6 +398,10 @@ public class ChatPanelControl : BaseStyledControl
                 default:
                     return $"Error: Unknown tool {tool.Action}";
             }
+        }
+        catch (OperationCanceledException)
+        {
+            return "Task cancelled by user.";
         }
         catch (Exception ex)
         {
@@ -321,36 +413,36 @@ public class ChatPanelControl : BaseStyledControl
     {
         // 1. If empty, use ActiveFilePath
         if (string.IsNullOrEmpty(rawPath))
-            return _ollama.ActiveFilePath ?? "";
+            return _currentService.ActiveFilePath ?? "";
 
         // 2. If already absolute and exists, use it
         if (Path.IsPathRooted(rawPath) && File.Exists(rawPath))
             return rawPath;
 
         // 3. Match against ActiveFilePath filename (if AI says "Home.razor" and it's open)
-        if (!string.IsNullOrEmpty(_ollama.ActiveFilePath))
+        if (!string.IsNullOrEmpty(_currentService.ActiveFilePath))
         {
             try
             {
-                string activeFileName = Path.GetFileName(_ollama.ActiveFilePath);
+                string activeFileName = Path.GetFileName(_currentService.ActiveFilePath);
                 if (rawPath.Equals(activeFileName, StringComparison.OrdinalIgnoreCase) ||
                     rawPath.EndsWith("\\" + activeFileName, StringComparison.OrdinalIgnoreCase) ||
                     rawPath.EndsWith("/" + activeFileName, StringComparison.OrdinalIgnoreCase))
                 {
-                    return _ollama.ActiveFilePath;
+                    return _currentService.ActiveFilePath;
                 }
             }
             catch { }
         }
 
         // 4. Try joining with WorkingDirectory
-        if (!string.IsNullOrEmpty(_ollama.WorkingDirectory))
+        if (!string.IsNullOrEmpty(_currentService.WorkingDirectory))
         {
-            string combined = Path.Combine(_ollama.WorkingDirectory, rawPath);
+            string combined = Path.Combine(_currentService.WorkingDirectory, rawPath);
             if (File.Exists(combined)) return combined;
 
             // Handle sub-project paths (e.g. AI says "BlazorHello/Pages/Home.razor" but we are IN "BlazorHello")
-            string? currentDir = _ollama.WorkingDirectory;
+            string? currentDir = _currentService.WorkingDirectory;
             while (currentDir != null)
             {
                 string alternative = Path.Combine(currentDir, rawPath);
@@ -359,6 +451,52 @@ public class ChatPanelControl : BaseStyledControl
             }
         }
 
+        // 5. HEURISTIC FOR NEW FILES: If "Pages/Animals.razor" is new, search for an existing "Pages" folder in subdirectories
+        if (!Path.IsPathRooted(rawPath) && !string.IsNullOrEmpty(_currentService.WorkingDirectory))
+        {
+            try
+            {
+                string? searchDir = Path.GetDirectoryName(rawPath.Replace('/', '\\'));
+                if (!string.IsNullOrEmpty(searchDir))
+                {
+                    // Search for a matching leaf directory in the project tree
+                    var matches = Directory.GetDirectories(_currentService.WorkingDirectory, searchDir, SearchOption.AllDirectories)
+                                           .Where(d => !d.Contains("\\bin\\") && !d.Contains("\\obj\\") && !d.Contains("\\.git\\"))
+                                           .ToList();
+                    
+                    if (matches.Count == 1)
+                    {
+                        return Path.GetFullPath(Path.Combine(matches[0], Path.GetFileName(rawPath)));
+                    }
+                    else if (matches.Count > 1 && !string.IsNullOrEmpty(_currentService.ActiveFilePath))
+                    {
+                        // Multiple matches? Pick the one that shares a parent structure with the Active File
+                        string activeDir = Path.GetDirectoryName(_currentService.ActiveFilePath) ?? "";
+                        var bestMatch = matches.OrderBy(m => GetSharedPathLength(m, activeDir)).Last();
+                        return Path.GetFullPath(Path.Combine(bestMatch, Path.GetFileName(rawPath)));
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // 6. FINAL FALLBACK: If not absolute and WorkingDirectory exists, root it there
+        if (!Path.IsPathRooted(rawPath) && !string.IsNullOrEmpty(_currentService.WorkingDirectory))
+            return Path.GetFullPath(Path.Combine(_currentService.WorkingDirectory, rawPath));
+
         return rawPath;
+    }
+
+    private static int GetSharedPathLength(string p1, string p2)
+    {
+        var parts1 = p1.Split(Path.DirectorySeparatorChar);
+        var parts2 = p2.Split(Path.DirectorySeparatorChar);
+        int length = 0;
+        for (int i = 0; i < Math.Min(parts1.Length, parts2.Length); i++)
+        {
+            if (parts1[i].Equals(parts2[i], StringComparison.OrdinalIgnoreCase)) length++;
+            else break;
+        }
+        return length;
     }
 }

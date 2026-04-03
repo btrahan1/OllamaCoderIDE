@@ -86,8 +86,19 @@ public class ProjectMapService
     private bool IsIgnored(string fullPath, string rootPath)
     {
         var relative = Path.GetRelativePath(rootPath, fullPath).ToLower();
-        string[] ignoredDirs = { ".git", "bin", "obj", ".ollama", ".vs", "node_modules", ".idea" };
-        return ignoredDirs.Any(d => relative.Contains(Path.DirectorySeparatorChar + d + Path.DirectorySeparatorChar) || 
-                                    relative.StartsWith(d + Path.DirectorySeparatorChar));
+        
+        // Define directory segments to ignore completely
+        string[] ignoredSegments = { 
+            ".git", "bin", "obj", ".ollama", ".vs", "node_modules", 
+            ".idea", "dist", "publish", ".gemini_coder"
+        };
+
+        // Aggressively ignore library folders (Bootstrap, etc) which are 99% trash for an AI
+        if (relative.Contains("wwwroot" + Path.DirectorySeparatorChar + "lib") || 
+            relative.Contains("wwwroot/lib")) 
+            return true;
+
+        var parts = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return parts.Any(p => ignoredSegments.Contains(p));
     }
 }

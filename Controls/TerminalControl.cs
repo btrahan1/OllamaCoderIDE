@@ -9,13 +9,25 @@ using System.Windows.Forms;
 
 namespace OllamaCoderIDE.Controls;
 
-public class TerminalControl : BaseStyledControl
+public class TerminalControl : BaseStyledControl, IDisposable
 {
     private RichTextBox _outputBox = null!;
     private TextBox _inputBox = null!;
     private Process? _process;
     private StreamWriter? _stdin;
     private string? _currentDirectory;
+
+    public void Dispose()
+    {
+        try {
+            if (_process != null && !_process.HasExited) {
+                _process.Kill(true); // Kill entire process tree
+            }
+        } catch { }
+        finally {
+            _process?.Dispose();
+        }
+    }
 
     public TerminalControl()
     {
@@ -177,7 +189,7 @@ public class TerminalControl : BaseStyledControl
         _outputBox.ScrollToCaret();
     }
 
-    public async Task<string> RunCommandAndCapture(string command, int timeoutMs = 5000)
+    public async Task<string> RunCommandAndCapture(string command, int timeoutMs = 5000, CancellationToken ct = default)
     {
         var outputBuilder = new StringBuilder();
         DataReceivedEventHandler handler = (s, e) => {
@@ -189,10 +201,19 @@ public class TerminalControl : BaseStyledControl
 
         ExecuteCommand(command);
         
-        await Task.Delay(timeoutMs); // Wait for output, or implement a better capture mechanism
-
-        _process!.OutputDataReceived -= handler;
-        _process!.ErrorDataReceived -= handler;
+        try
+        {
+            await Task.Delay(timeoutMs, ct); // Respect cancellation
+        }
+        catch (TaskCanceledException)
+        {
+            StopCurrentProcess(); // Aggressively stop if task cancelled
+        }
+        finally
+        {
+            _process!.OutputDataReceived -= handler;
+            _process!.ErrorDataReceived -= handler;
+        }
 
         return outputBuilder.ToString();
     }

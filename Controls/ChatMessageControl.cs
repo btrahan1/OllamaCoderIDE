@@ -19,9 +19,8 @@ public class ChatMessageControl : BaseStyledControl
     {
         _sender = sender;
         _message = message;
-        Dock = DockStyle.Top;
-        AutoSize = true;
-        AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        // Disable AutoSize here so the parent FlowLayoutPanel can set our Width
+        AutoSize = false;
         Padding = new Padding(8);
         Margin = new Padding(0, 0, 0, 8);
         BackColor = sender == "AI" ? ThemeManager.Surface : Color.FromArgb(30, 30, 33);
@@ -108,9 +107,13 @@ public class ChatMessageControl : BaseStyledControl
             Dock = DockStyle.Fill,
             Margin = new Padding(0, 0, 0, 4)
         };
-        _contentBox.ContentsResized += (s, e) => _contentBox.Height = e.NewRectangle.Height + 4;
+        _contentBox.ContentsResized += (s, e) => {
+            _contentBox.Height = e.NewRectangle.Height + 4;
+            this.Height = _table.PreferredSize.Height + Padding.Vertical + Margin.Vertical;
+        };
         _table.Controls.Add(_contentBox, 0, 1);
 
+        _table.Dock = DockStyle.Fill;
         Controls.Add(_table);
     }
 }

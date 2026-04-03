@@ -1,0 +1,49 @@
+  Determining projects to restore...
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj : warning NU1603: OllamaCoderIDE depends on Scintilla5.NET (>= 5.4.1) but Scintilla5.NET 5.4.1 was not found. Scintilla5.NET 5.5.0 was resolved instead. [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.sln]
+  All projects are up-to-date for restore.
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj : warning NU1603: OllamaCoderIDE depends on Scintilla5.NET (>= 5.4.1) but Scintilla5.NET 5.4.1 was not found. Scintilla5.NET 5.5.0 was resolved instead.
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Services\GeminiService.cs(86,37): warning CS1998: This async method lacks 'await' operators and will run synchronously. Consider using the 'await' operator to await non-blocking API calls, or 'await Task.Run(...)' to do CPU-bound work on a background thread. [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\FileExplorerControl.cs(63,17): warning CS8602: Dereference of a possibly null reference. [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(109,9): error CS0103: The name '_tempNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(110,9): error CS0103: The name '_topKNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(111,9): error CS0103: The name '_topPNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(112,9): error CS0103: The name '_ctxNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(129,9): error CS0103: The name '_historyNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(131,9): error CS0103: The name '_autoExecCheck' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(138,9): error CS0103: The name '_autoExecCheck' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(139,29): error CS0103: The name '_autoExecCheck' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(58,44): warning CS8602: Dereference of a possibly null reference. [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(180,9): error CS0103: The name '_tempNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(181,9): error CS0103: The name '_topKNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(182,9): error CS0103: The name '_topPNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(183,9): error CS0103: The name '_ctxNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(185,9): error CS0103: The name '_historyNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(186,9): error CS0103: The name '_autoExecCheck' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+
+Build FAILED.
+
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj : warning NU1603: OllamaCoderIDE depends on Scintilla5.NET (>= 5.4.1) but Scintilla5.NET 5.4.1 was not found. Scintilla5.NET 5.5.0 was resolved instead. [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.sln]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj : warning NU1603: OllamaCoderIDE depends on Scintilla5.NET (>= 5.4.1) but Scintilla5.NET 5.4.1 was not found. Scintilla5.NET 5.5.0 was resolved instead.
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Services\GeminiService.cs(86,37): warning CS1998: This async method lacks 'await' operators and will run synchronously. Consider using the 'await' operator to await non-blocking API calls, or 'await Task.Run(...)' to do CPU-bound work on a background thread. [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\FileExplorerControl.cs(63,17): warning CS8602: Dereference of a possibly null reference. [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(58,44): warning CS8602: Dereference of a possibly null reference. [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(109,9): error CS0103: The name '_tempNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(110,9): error CS0103: The name '_topKNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(111,9): error CS0103: The name '_topPNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(112,9): error CS0103: The name '_ctxNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(129,9): error CS0103: The name '_historyNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(131,9): error CS0103: The name '_autoExecCheck' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(138,9): error CS0103: The name '_autoExecCheck' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(139,29): error CS0103: The name '_autoExecCheck' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(180,9): error CS0103: The name '_tempNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(181,9): error CS0103: The name '_topKNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(182,9): error CS0103: The name '_topPNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(183,9): error CS0103: The name '_ctxNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(185,9): error CS0103: The name '_historyNum' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\Controls\SettingsControl.cs(186,9): error CS0103: The name '_autoExecCheck' does not exist in the current context [C:\Users\bartt\Projects\OllamaCoder\OllamaCoderIDE\OllamaCoderIDE.csproj]
+    5 Warning(s)
+    14 Error(s)
+
+Time Elapsed 00:00:01.67
+
+Workload updates are available. Run `dotnet workload list` for more information.

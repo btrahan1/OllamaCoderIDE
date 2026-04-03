@@ -10,9 +10,14 @@ namespace OllamaCoderIDE.Controls;
 public class SettingsControl : BaseStyledControl
 {
     private readonly SettingsService _settingsService;
-    private readonly OllamaService _ollamaService;
+    private readonly ILLMService _ollamaService;
+    private readonly ILLMService _geminiService;
+    private ComboBox _providerCombo = null!;
     private ComboBox _modelCombo = null!;
+    private TextBox _geminiKeyBox = null!;
+    private TextBox _geminiModelBox = null!;
     private TextBox _systemPromptBox = null!;
+    private Panel _geminiSettingsPanel = null!;
     private NumericUpDown _tempNum = null!;
     private NumericUpDown _topKNum = null!;
     private NumericUpDown _topPNum = null!;
@@ -20,10 +25,11 @@ public class SettingsControl : BaseStyledControl
     private NumericUpDown _historyNum = null!;
     private CheckBox _autoExecCheck = null!;
 
-    public SettingsControl(SettingsService settingsService, OllamaService ollamaService)
+    public SettingsControl(SettingsService settingsService, ILLMService ollamaService, ILLMService geminiService)
     {
         _settingsService = settingsService;
         _ollamaService = ollamaService;
+        _geminiService = geminiService;
         Dock = DockStyle.Fill;
         Padding = new Padding(40);
         InitializeSettings();
@@ -43,8 +49,29 @@ public class SettingsControl : BaseStyledControl
         layout.Controls.Add(CreateHeader("Application Settings"));
         layout.Controls.Add(CreateSpacer(20));
 
-        // Model Selection
-        layout.Controls.Add(CreateLabel("Selected Model:"));
+        // Provider Selection
+        layout.Controls.Add(CreateLabel("Model Provider:"));
+        _providerCombo = new ComboBox
+        {
+            Width = 300,
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            BackColor = ThemeManager.Surface,
+            ForeColor = ThemeManager.TextMain,
+            FlatStyle = FlatStyle.Flat
+        };
+        _providerCombo.Items.AddRange(Enum.GetNames(typeof(LlmProvider)));
+        _providerCombo.SelectedIndexChanged += (s, e) => {
+            if (Enum.TryParse<LlmProvider>(_providerCombo.SelectedItem.ToString(), out var p))
+            {
+                _settingsService.Current.Provider = p;
+                ToggleProviderUI(p);
+                _ = RefreshModels();
+            }
+        };
+        layout.Controls.Add(_providerCombo);
+
+        // Ollama specific
+        layout.Controls.Add(CreateLabel("Selected Model (Ollama):"));
         _modelCombo = new ComboBox
         {
             Width = 300,
@@ -61,13 +88,28 @@ public class SettingsControl : BaseStyledControl
 
         var refreshBtn = new ModernButton
         {
-            Text = "Refresh Models",
-            Width = 150,
+            Text = "Refresh Ollama Models",
+            Width = 180,
             Height = 30,
             Margin = new Padding(0, 5, 0, 15)
         };
         refreshBtn.Click += async (s, e) => await RefreshModels();
         layout.Controls.Add(refreshBtn);
+
+        // Gemini specific Panel
+        _geminiSettingsPanel = new FlowLayoutPanel { Width = 450, Height = 140, FlowDirection = FlowDirection.TopDown, WrapContents = false };
+        
+        _geminiSettingsPanel.Controls.Add(CreateLabel("Gemini API Key:"));
+        _geminiKeyBox = new TextBox { Width = 400, BackColor = ThemeManager.Surface, ForeColor = ThemeManager.TextMain, PasswordChar = '*' };
+        _geminiKeyBox.TextChanged += (s, e) => _settingsService.Current.GeminiApiKey = _geminiKeyBox.Text;
+        _geminiSettingsPanel.Controls.Add(_geminiKeyBox);
+
+        _geminiSettingsPanel.Controls.Add(CreateLabel("Gemini Model Name:"));
+        _geminiModelBox = new TextBox { Width = 400, BackColor = ThemeManager.Surface, ForeColor = ThemeManager.TextMain };
+        _geminiModelBox.TextChanged += (s, e) => _settingsService.Current.GeminiModel = _geminiModelBox.Text;
+        _geminiSettingsPanel.Controls.Add(_geminiModelBox);
+        
+        layout.Controls.Add(_geminiSettingsPanel);
 
         // Numeric Settings
         _tempNum = CreateNumericControl("Temperature:", 0, 2, 0.1m, layout);
@@ -149,8 +191,20 @@ public class SettingsControl : BaseStyledControl
         _historyNum.Value = s.MaxHistoryMessages;
         _autoExecCheck.Checked = s.AutoExecuteTools;
         
+        _providerCombo.SelectedItem = s.Provider.ToString();
+        _geminiKeyBox.Text = s.GeminiApiKey;
+        _geminiModelBox.Text = s.GeminiModel;
+
         if (_modelCombo.Items.Contains(s.SelectedModel))
             _modelCombo.SelectedItem = s.SelectedModel;
+
+        ToggleProviderUI(s.Provider);
+    }
+
+    private void ToggleProviderUI(LlmProvider provider)
+    {
+        _geminiSettingsPanel.Visible = (provider == LlmProvider.Gemini);
+        _modelCombo.Enabled = (provider == LlmProvider.Ollama);
     }
 
     private NumericUpDown CreateNumericControl(string labelText, decimal min, decimal max, decimal inc, FlowLayoutPanel layout)
@@ -204,14 +258,25 @@ public class SettingsControl : BaseStyledControl
 
     private async Task RefreshModels()
     {
-        var models = await _ollamaService.GetModelsAsync();
+        var provider = _settingsService.Current.Provider;
+        var service = (provider == LlmProvider.Ollama) ? _ollamaService : _geminiService;
+        
+        var models = await service.GetModelsAsync();
         _modelCombo.Invoke((Action)(() => {
             _modelCombo.Items.Clear();
             foreach (var m in models) _modelCombo.Items.Add(m);
-            if (_modelCombo.Items.Contains(_settingsService.Current.SelectedModel))
-                _modelCombo.SelectedItem = _settingsService.Current.SelectedModel;
-            else if (_modelCombo.Items.Count > 0)
-                _modelCombo.SelectedIndex = 0;
+            
+            if (provider == LlmProvider.Ollama)
+            {
+                if (_modelCombo.Items.Contains(_settingsService.Current.SelectedModel))
+                    _modelCombo.SelectedItem = _settingsService.Current.SelectedModel;
+                else if (_modelCombo.Items.Count > 0)
+                    _modelCombo.SelectedIndex = 0;
+            }
+            else
+            {
+                _modelCombo.SelectedItem = _settingsService.Current.GeminiModel;
+            }
         }));
     }
 }

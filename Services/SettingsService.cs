@@ -21,13 +21,6 @@ public class SettingsService
             {
                 var json = File.ReadAllText(_settingsFilePath);
                 Current = JsonSerializer.Deserialize<AppSettings>(json) ?? new();
-                
-                // Migration: Upgrade prompt if it doesn't contain the new kill_port tool
-                if (!Current.AgentSystemPrompt.Contains("kill_port"))
-                {
-                    Current.AgentSystemPrompt = new AppSettings().AgentSystemPrompt;
-                    Save();
-                }
             }
         }
         catch { /* Fallback to defaults */ }

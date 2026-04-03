@@ -1,5 +1,6 @@
 using OllamaCoderIDE.Controls;
 using OllamaCoderIDE.Services;
+using OllamaCoderIDE.Models;
 using System;
 using System.Drawing;
 using System.IO;
@@ -9,7 +10,9 @@ namespace OllamaCoderIDE;
 
 public partial class Form1 : Form
 {
-    private readonly OllamaService _ollama;
+    private readonly ILLMService _ollama;
+    private readonly ILLMService _gemini;
+    private ILLMService _currentService;
     private readonly SettingsService _settings;
     private SidebarControl _sidebar = null!;
     private EditorControl _editor = null!;
@@ -33,14 +36,19 @@ public partial class Form1 : Form
         this.StartPosition = FormStartPosition.CenterScreen;
 
         _ollama = new OllamaService();
+        _gemini = new GeminiService();
         _settings = new SettingsService();
         
+        // Pick initial service
+        _currentService = _settings.Current.Provider == LlmProvider.Gemini ? _gemini : _ollama;
+
         SetupLayout();
 
         string root = _settings.Current.LastOpenedPath ?? AppContext.BaseDirectory;
         if (Directory.Exists(root)) OpenFolder(root);
 
         this.Shown += (s, e) => SetSplitterDistance();
+        this.FormClosing += (s, e) => _terminal.Dispose();
     }
 
     private void SetupLayout()
@@ -78,7 +86,6 @@ public partial class Form1 : Form
 
         // 4. Sidebar
         _sidebar = new SidebarControl { Dock = DockStyle.Fill };
-        _sidebar.OnViewChanged += OnSidebarViewChanged;
         contentTable.Controls.Add(_sidebar, 0, 0);
 
         // 5. Workspace Splitters
@@ -122,33 +129,105 @@ public partial class Form1 : Form
         _editor = new EditorControl { Dock = DockStyle.Fill };
         _mainPanel.Controls.Add(_editor);
 
-        _settingsControl = new SettingsControl(_settings, _ollama) { Dock = DockStyle.Fill, Visible = false };
+        _settingsControl = new SettingsControl(_settings, _ollama, _gemini) { Dock = DockStyle.Fill, Visible = false };
         _mainPanel.Controls.Add(_settingsControl);
 
         _editorChatSplitter.Panel1.Controls.Add(_mainPanel);
 
-        _chat = new ChatPanelControl(_ollama, _settings, _terminal) { Dock = DockStyle.Fill };
+        // Chat Panel - initially using current service
+        _chat = new ChatPanelControl(_currentService, _settings, _terminal) { Dock = DockStyle.Fill };
         _chat.OnApplyCodeRequested += (code) => {
-            _editor.TextContent = code;
             if (!string.IsNullOrEmpty(_editor.CurrentFilePath))
             {
                 try {
-                File.WriteAllText(_editor.CurrentFilePath, code);
-                _ollama.ActiveFileContent = code; // Sync back to AI context
-                _ollama.RefreshProjectMap(); 
+                    File.WriteAllText(_editor.CurrentFilePath, code);
+                    HandleFileChange(_editor.CurrentFilePath);
                 } catch { /* Handle lock or write error */ }
             }
         };
+        _chat.OnFileModified += (path) => HandleFileChange(path);
+
         _editorChatSplitter.Panel2.Controls.Add(_chat);
+
+        // Logic to swap services when settings change
+        _sidebar.OnViewChanged += (view) => {
+            if (view != SidebarView.Settings && _settingsControl.Visible)
+            {
+                // Leaving settings - check for provider swap
+                var newService = _settings.Current.Provider == LlmProvider.Gemini ? _gemini : _ollama;
+                if (newService != _currentService)
+                {
+                    _currentService = newService;
+                    // Transfer state to new service
+                    _currentService.ActiveFilePath = _editor.CurrentFilePath;
+                    _currentService.ActiveFileContent = _editor.TextContent;
+                    if (!string.IsNullOrEmpty(_settings.Current.LastOpenedPath))
+                        _currentService.SetWorkingDirectory(_settings.Current.LastOpenedPath);
+                    
+                    UpdateChatService();
+                }
+            }
+            OnSidebarViewChanged(view);
+        };
 
         // Wire Toolbar to Chat
         _toolbar.OnActionRequested += (action) => _chat.PerformAction(action);
+        
+        UpdateToolbarStatus();
+    }
+
+    private void HandleFileChange(string path)
+    {
+        if (InvokeRequired)
+        {
+            Invoke(new Action(() => HandleFileChange(path)));
+            return;
+        }
+
+        // 1. Refresh Explorer
+        _explorer.RefreshTree();
+
+        // 2. Sync AI Context
+        _ollama.ActiveFilePath = path;
+        _gemini.ActiveFilePath = path;
+        _ollama.RefreshProjectMap();
+        _gemini.RefreshProjectMap();
+
+        // 3. Refresh Editor if this is the active file
+        if (path.Equals(_editor.CurrentFilePath, StringComparison.OrdinalIgnoreCase))
+        {
+            try {
+                string content = File.ReadAllText(path);
+                _editor.TextContent = content;
+                _ollama.ActiveFileContent = content;
+                _gemini.ActiveFileContent = content;
+            } catch { }
+        }
+    }
+
+    private void UpdateToolbarStatus()
+    {
+        var s = _settings.Current;
+        string model = s.Provider == LlmProvider.Gemini ? s.GeminiModel : s.SelectedModel;
+        string provider = s.Provider.ToString().ToUpper();
+        Color color = s.Provider == LlmProvider.Gemini ? Color.FromArgb(0, 150, 255) : ThemeManager.Primary;
+        
+        _toolbar.SetModelStatus($"[{provider}] {model}", color);
+    }
+
+    private void UpdateChatService()
+    {
+        // Re-inject the service into existing controls
+        // To avoid deep refactors, I'll add a method to ChatPanelControl
+        _chat.UpdateService(_currentService);
+        UpdateToolbarStatus();
     }
 
     private void OpenFolder(string path)
     {
         _explorer.LoadDirectory(path);
         _ollama.SetWorkingDirectory(path);
+        _gemini.SetWorkingDirectory(path);
         _terminal.SetWorkingDirectory(path);
         _settings.Current.LastOpenedPath = path;
         _settings.Save();
@@ -163,9 +242,11 @@ public partial class Form1 : Form
             _editor.SetLanguage(Path.GetExtension(path));
             _editor.CurrentFilePath = path;
 
-            // Sync with AI context
+            // Sync with ALL AI contexts
             _ollama.ActiveFilePath = path;
             _ollama.ActiveFileContent = content;
+            _gemini.ActiveFilePath = path;
+            _gemini.ActiveFileContent = content;
         } catch (Exception ex) {
             MessageBox.Show($"Error opening file: {ex.Message}");
         }

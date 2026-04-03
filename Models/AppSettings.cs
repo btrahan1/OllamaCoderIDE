@@ -1,8 +1,16 @@
 namespace OllamaCoderIDE.Models;
 
+public enum LlmProvider { Ollama, Gemini }
+
 public class AppSettings
 {
+    public LlmProvider Provider { get; set; } = LlmProvider.Ollama;
     public string SelectedModel { get; set; } = "qwen2.5-coder:7b";
+    
+    // Gemini Settings (Defaults from User)
+    public string GeminiModel { get; set; } = "models/gemini-2.5-flash";
+    public string GeminiApiKey { get; set; } = "AIzaSyDFcywB6SVs2xuxFmLK88htsi_rTsCDzYY";
+
     public double Temperature { get; set; } = 0.3;
     public int TopK { get; set; } = 40;
     public double TopP { get; set; } = 1.0;
@@ -20,7 +28,7 @@ public class AppSettings
         "AVAILABLE TOOLS:\n" +
         "- read_file(path): Returns file content.\n" +
         "- write_file(path, content): Overwrites a file.\n" +
-        "- surgical_edit(path, search, replace): Replaces specific code blocks using fuzzy matching.\n" +
+        "- surgical_edit(path, search, replace): Replaces a block of code. IMPORTANT: 'search' MUST be unique. Include surrounding lines/tags (e.g. '<h1>Header</h1>' instead of just 'Header') so it matches exactly one place.\n" +
         "- list_directory(path): Lists files in a directory.\n" +
         "- run_command(command): Executes a shell command in the workspace terminal.\n" +
         "- kill_port(port): Forcefully terminates any process listening on the specified network port.\n";

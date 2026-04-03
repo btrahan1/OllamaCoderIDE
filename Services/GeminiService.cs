@@ -11,10 +11,10 @@ using OllamaCoderIDE.Models;
 
 namespace OllamaCoderIDE.Services;
 
-public class OllamaService : ILLMService
+public class GeminiService : ILLMService
 {
     private readonly HttpClient _httpClient;
-    private const string BaseUrl = "http://localhost:11434/api";
+    private const string BaseUrl = "https://generativelanguage.googleapis.com/v1beta/openai/";
     private readonly List<ChatMessage> _history = new();
     private readonly ProjectMapService _projectMapService = new();
     
@@ -25,10 +25,10 @@ public class OllamaService : ILLMService
     public IReadOnlyList<ChatMessage> History => _history.AsReadOnly();
     public event Action<string>? OnPromptSent;
 
-    public OllamaService()
+    public GeminiService()
     {
         _httpClient = new HttpClient();
-        _httpClient.Timeout = TimeSpan.FromMinutes(10);
+        _httpClient.Timeout = TimeSpan.FromMinutes(5);
     }
 
     public void Reset()
@@ -60,7 +60,7 @@ public class OllamaService : ILLMService
     private string GetHistoryPath()
     {
         if (string.IsNullOrEmpty(WorkingDirectory)) return string.Empty;
-        var dir = Path.Combine(WorkingDirectory, ".ollama");
+        var dir = Path.Combine(WorkingDirectory, ".gemini_coder");
         if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
         return Path.Combine(dir, "history.json");
     }
@@ -77,7 +77,7 @@ public class OllamaService : ILLMService
             var items = JsonSerializer.Deserialize<List<ChatMessage>>(json);
             if (items != null) _history.AddRange(items);
         }
-        catch { /* Fallback to empty history */ }
+        catch { }
     }
 
     public void SaveHistory()
@@ -90,7 +90,7 @@ public class OllamaService : ILLMService
             var json = JsonSerializer.Serialize(_history, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(path, json);
         }
-        catch { /* Ignore save errors */ }
+        catch { }
     }
 
     public void AddHistory(string role, string content)
@@ -100,25 +100,14 @@ public class OllamaService : ILLMService
 
     public async Task<List<string>> GetModelsAsync()
     {
-        try
-        {
-            var response = await _httpClient.GetAsync($"{BaseUrl}/tags");
-            if (!response.IsSuccessStatusCode) return new List<string> { "qwen2.5-coder:7b" };
-
-            var json = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(json);
-            var models = new List<string>();
-            
-            if (doc.RootElement.TryGetProperty("models", out var modelsArray))
-            {
-                foreach (var model in modelsArray.EnumerateArray())
-                {
-                    models.Add(model.GetProperty("name").GetString() ?? "");
-                }
-            }
-            return models.Count > 0 ? models : new List<string> { "qwen2.5-coder:7b" };
-        }
-        catch { return new List<string> { "qwen2.5-coder:7b" }; }
+        await Task.Yield();
+        // Simple list for now as Gemini models are well-known
+        return new List<string> { 
+            "models/gemini-2.5-flash",
+            "models/gemini-2.0-flash",
+            "models/gemini-1.5-flash", 
+            "models/gemini-1.5-pro" 
+        };
     }
 
     public async Task<string> ChatAsync(string prompt, AppSettings settings, bool addToHistory = true, bool leanContext = false, System.Threading.CancellationToken ct = default)
@@ -130,17 +119,26 @@ public class OllamaService : ILLMService
         if (!string.IsNullOrEmpty(ActiveFilePath))
             fullSystemPrompt += $"\n\n## ACTIVE FILE CONTEXT:\nPath: {ActiveFilePath}\nContent:\n{ActiveFileContent}";
 
-        var messages = new List<ChatMessage> { new ChatMessage("system", fullSystemPrompt) };
-        messages.AddRange(_history);
-        messages.Add(new ChatMessage("user", prompt));
+        var messages = new List<object> { new { role = "system", content = fullSystemPrompt } };
+        foreach (var msg in _history)
+        {
+            messages.Add(new { role = msg.role, content = msg.content });
+        }
+
+        // Add the current prompt (can be from user or tool results)
+        messages.Add(new { role = "user", content = prompt });
 
         var requestBody = new
         {
-            model = settings.SelectedModel,
+            model = settings.GeminiModel,
             messages = messages,
-            stream = false,
-            options = new { temperature = settings.Temperature, num_ctx = Math.Max(settings.NumCtx, 8192) }
+            temperature = settings.Temperature,
+            stream = false
         };
+
+        var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}chat/completions");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", settings.GeminiApiKey);
+        request.Content = JsonContent.Create(requestBody);
 
         // Report full prompt log before sending
         try {
@@ -152,13 +150,17 @@ public class OllamaService : ILLMService
             OnPromptSent?.Invoke(log);
         } catch { }
 
-        var response = await _httpClient.PostAsJsonAsync($"{BaseUrl}/chat", requestBody, ct);
+        var response = await _httpClient.SendAsync(request, ct);
         response.EnsureSuccessStatusCode();
 
         var jsonResponse = await response.Content.ReadAsStringAsync(ct);
         using var doc = JsonDocument.Parse(jsonResponse);
         
-        string assistantContent = doc.RootElement.GetProperty("message").GetProperty("content").GetString() ?? "";
+        string assistantContent = doc.RootElement
+            .GetProperty("choices")[0]
+            .GetProperty("message")
+            .GetProperty("content")
+            .GetString() ?? "";
         
         if (addToHistory)
         {

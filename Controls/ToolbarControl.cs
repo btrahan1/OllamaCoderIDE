@@ -6,7 +6,19 @@ namespace OllamaCoderIDE.Controls;
 
 public class ToolbarControl : BaseStyledControl
 {
+    private Label _modelStatusLabel = null!;
     public event Action<string>? OnActionRequested;
+
+    public void SetModelStatus(string text, Color color)
+    {
+        if (_modelStatusLabel.InvokeRequired)
+        {
+            _modelStatusLabel.Invoke((Action)(() => SetModelStatus(text, color)));
+            return;
+        }
+        _modelStatusLabel.Text = text;
+        _modelStatusLabel.ForeColor = color;
+    }
 
     public ToolbarControl()
     {
@@ -37,6 +49,20 @@ public class ToolbarControl : BaseStyledControl
         layout.Controls.Add(buildBtn);
         layout.Controls.Add(runBtn);
         layout.Controls.Add(testBtn);
+
+        // Add flexible spacer to push model status to the right
+        layout.Controls.Add(new Label { Width = 300, AutoSize = false }); // Simple spacer
+
+        _modelStatusLabel = new Label
+        {
+            Text = "[OLLAMA] qwen2.5-coder:7b",
+            ForeColor = ThemeManager.Primary,
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            AutoSize = true,
+            TextAlign = ContentAlignment.MiddleRight,
+            Margin = new Padding(20, 10, 0, 0)
+        };
+        layout.Controls.Add(_modelStatusLabel);
 
         Controls.Add(layout);
 
