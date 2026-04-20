@@ -7,7 +7,10 @@ namespace OllamaCoderIDE.Controls;
 public class ToolbarControl : BaseStyledControl
 {
     private Label _modelStatusLabel = null!;
+    private ComboBox _projectTypeCombo = null!;
     public event Action<string>? OnActionRequested;
+    public event Action<string>? OnProjectTypeChanged;
+
 
     public void SetModelStatus(string text, Color color)
     {
@@ -50,8 +53,39 @@ public class ToolbarControl : BaseStyledControl
         layout.Controls.Add(runBtn);
         layout.Controls.Add(testBtn);
 
+        // Add Spacer
+        layout.Controls.Add(new Label { Width = 20, AutoSize = false });
+
+        // Project Type Dropdown
+        var label = new Label 
+        { 
+            Text = "Project:", 
+            ForeColor = Color.DarkGray, 
+            AutoSize = true, 
+            Margin = new Padding(0, 10, 5, 0),
+            Font = new Font("Segoe UI", 8.5f)
+        };
+        layout.Controls.Add(label);
+
+        _projectTypeCombo = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            BackColor = Color.FromArgb(45, 45, 48),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Width = 120,
+            Font = new Font("Segoe UI", 9f),
+            Margin = new Padding(0, 6, 0, 0)
+        };
+        _projectTypeCombo.SelectedIndexChanged += (s, e) => {
+            if (_projectTypeCombo.SelectedItem is string type)
+                OnProjectTypeChanged?.Invoke(type);
+        };
+        layout.Controls.Add(_projectTypeCombo);
+
         // Add flexible spacer to push model status to the right
-        layout.Controls.Add(new Label { Width = 300, AutoSize = false }); // Simple spacer
+        layout.Controls.Add(new Label { Width = 150, AutoSize = false }); // Simple spacer
+
 
         _modelStatusLabel = new Label
         {
@@ -95,4 +129,12 @@ public class ToolbarControl : BaseStyledControl
         
         return btn;
     }
+
+    public void SetProjectTypes(List<string> types, string current)
+    {
+        _projectTypeCombo.Items.Clear();
+        _projectTypeCombo.Items.AddRange(types.ToArray());
+        _projectTypeCombo.SelectedItem = current;
+    }
 }
+

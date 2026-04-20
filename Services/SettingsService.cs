@@ -47,4 +47,42 @@ public class SettingsService
         Current = settings;
         Save();
     }
+
+    public string GetFullSystemPrompt()
+    {
+        var generalPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Instructions", "General.md");
+        var projectPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Instructions", $"{Current.ProjectType}.md");
+
+        var prompt = "";
+        if (File.Exists(generalPath))
+        {
+            prompt = File.ReadAllText(generalPath);
+        }
+
+        if (Current.ProjectType != "General" && File.Exists(projectPath))
+        {
+            prompt += "\n\n" + File.ReadAllText(projectPath);
+        }
+
+        if (!string.IsNullOrEmpty(Current.AgentSystemPrompt))
+        {
+            prompt += "\n\n### USER OVERRIDES\n" + Current.AgentSystemPrompt;
+        }
+
+        return prompt;
+    }
+
+    public List<string> GetProjectTypes()
+    {
+        var instructionsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Instructions");
+        if (!Directory.Exists(instructionsDir)) return new List<string> { "General" };
+
+        var files = Directory.GetFiles(instructionsDir, "*.md");
+        var types = files.Select(f => Path.GetFileNameWithoutExtension(f)).ToList();
+        
+        // Ensure General is first, then rest alphabetical
+        return types.OrderBy(t => t == "General" ? 0 : 1).ThenBy(t => t).ToList();
+    }
 }
+
+

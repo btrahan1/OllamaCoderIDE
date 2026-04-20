@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -185,7 +186,11 @@ public class TerminalControl : BaseStyledControl, IDisposable
         _outputBox.SelectionStart = _outputBox.TextLength;
         _outputBox.SelectionLength = 0;
         _outputBox.SelectionColor = isError ? ThemeManager.Error : Color.LightGray;
-        _outputBox.AppendText(text + Environment.NewLine);
+
+        // Strip ANSI escape sequences (e.g., [7m, [0m)
+        string cleanedText = Regex.Replace(text, @"\x1b\[[0-9;]*[mK]", "");
+        
+        _outputBox.AppendText(cleanedText + Environment.NewLine);
         _outputBox.ScrollToCaret();
     }
 

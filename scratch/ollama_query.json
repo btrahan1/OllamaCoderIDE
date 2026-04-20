@@ -1,0 +1,5 @@
+{
+  "model": "gemma4:e4b",
+  "prompt": "Explain the difference between RenderMode.InteractiveServer and RenderMode.InteractiveWebAssembly in .NET 9.",
+  "stream": false
+}

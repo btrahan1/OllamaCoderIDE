@@ -19,22 +19,22 @@ public class ProjectMapService
         }
     }
 
-    public string BuildMap(string rootPath)
+    public string BuildMap(string rootPath, int maxDepth = 99)
     {
         if (string.IsNullOrEmpty(rootPath) || !Directory.Exists(rootPath))
             return "No workspace loaded.";
 
         try
         {
-            var allFiles = Directory.GetFiles(rootPath, "*", SearchOption.AllDirectories)
+            var allEntries = Directory.GetFileSystemEntries(rootPath, "*", SearchOption.AllDirectories)
                 .Where(f => !IsIgnored(f, rootPath))
                 .Select(f => Path.GetRelativePath(rootPath, f))
                 .ToList();
 
             var root = new MapNode("");
-            foreach (var file in allFiles)
+            foreach (var entry in allEntries)
             {
-                var parts = file.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var parts = entry.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 var current = root;
                 foreach (var part in parts)
                 {
@@ -47,8 +47,8 @@ public class ProjectMapService
             }
 
             var sb = new StringBuilder();
-            sb.AppendLine("WORKSPACE PROJECT MAP:");
-            RenderTree(root, "", true, sb);
+            sb.AppendLine(maxDepth < 5 ? "WORKSPACE PROJECT MAP (Shallow Map):" : "WORKSPACE PROJECT MAP:");
+            RenderTree(root, "", true, sb, 0, maxDepth);
             
             // Add important file summaries
             var readmePath = Path.Combine(rootPath, "README.md");
@@ -66,8 +66,10 @@ public class ProjectMapService
         }
     }
 
-    private void RenderTree(MapNode node, string indent, bool isLast, StringBuilder sb)
+    private void RenderTree(MapNode node, string indent, bool isLast, StringBuilder sb, int currentDepth, int maxDepth)
     {
+        if (currentDepth > maxDepth) return;
+
         if (!string.IsNullOrEmpty(node.Name))
         {
             sb.Append(indent);
@@ -79,7 +81,7 @@ public class ProjectMapService
         var children = node.Children.Values.ToList();
         for (int i = 0; i < children.Count; i++)
         {
-            RenderTree(children[i], indent, i == children.Count - 1, sb);
+            RenderTree(children[i], indent, i == children.Count - 1, sb, currentDepth + 1, maxDepth);
         }
     }
 

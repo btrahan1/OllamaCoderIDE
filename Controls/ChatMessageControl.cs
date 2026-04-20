@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using OllamaCoderIDE.Services;
 
 namespace OllamaCoderIDE.Controls;
 
@@ -13,7 +14,9 @@ public class ChatMessageControl : BaseStyledControl
     private RichTextBox _contentBox = null!;
     private TableLayoutPanel _table = null!;
     private List<string> _codes = new();
+    private List<ToolCall> _tools = new();
     public event Action<string>? OnApplyCode;
+    public event Action<ToolCall>? OnExecuteTool;
 
     public ChatMessageControl(string sender, string message)
     {
@@ -37,16 +40,22 @@ public class ChatMessageControl : BaseStyledControl
 
     public void MarkAsComplete()
     {
-        // Re-extract code blocks and add buttons
         _codes.Clear();
-        var matches = Regex.Matches(_message, @"```(?:csharp|cs|)?\n?(.*?)```", RegexOptions.Singleline);
+        _tools.Clear();
+
+        // 1. Extract Code Snippets
+        var matches = Regex.Matches(_message, @"```(?:csharp|cs|json|)?\n?(.*?)```", RegexOptions.Singleline);
         foreach (Match m in matches)
         {
             var code = m.Groups[1].Value.Trim();
             if (!string.IsNullOrEmpty(code)) _codes.Add(code);
         }
 
-        // Add buttons if codes found
+        // 2. Extract Tool Calls (Experimental recovery for broken blocks)
+        var parseResult = ToolParser.Parse(_message);
+        _tools.AddRange(parseResult.Tools);
+
+        // UI: Add buttons for code
         for (int i = 0; i < _codes.Count; i++)
         {
             var idx = i;
@@ -62,8 +71,29 @@ public class ChatMessageControl : BaseStyledControl
             };
             btn.Click += (s, e) => OnApplyCode?.Invoke(_codes[idx]);
             _table.RowStyles.Add(new RowStyle(SizeType.Absolute, 42f));
-            _table.Controls.Add(btn, 0, 2 + i);
+            _table.Controls.Add(btn, 0, 2 + _table.Controls.Count);
         }
+
+        // UI: Add buttons for tools
+        for (int i = 0; i < _tools.Count; i++)
+        {
+            var idx = i;
+            var btn = new ModernButton
+            {
+                Text = $"🔧 Execute {_tools[idx].Action}",
+                Width = 200,
+                Height = 34,
+                Dock = DockStyle.Left,
+                BackColor = Color.FromArgb(0, 122, 204), // Blue for tools
+                Font = new Font(ThemeManager.TextFont.FontFamily, 8f, FontStyle.Bold),
+                Margin = new Padding(0, 4, 0, 4)
+            };
+            btn.Click += (s, e) => OnExecuteTool?.Invoke(_tools[idx]);
+            _table.RowStyles.Add(new RowStyle(SizeType.Absolute, 42f));
+            _table.Controls.Add(btn, 0, 2 + _table.Controls.Count);
+        }
+        
+        this.Height = _table.PreferredSize.Height + Padding.Vertical + Margin.Vertical;
     }
 
     private void InitializeComponents()

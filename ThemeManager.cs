@@ -9,6 +9,7 @@ public static class ThemeManager
     public static readonly Color Surface = Color.FromArgb(24, 24, 27);
     public static readonly Color Sidebar = Color.FromArgb(31, 31, 35);
     public static readonly Color Border = Color.FromArgb(39, 39, 42);
+    public static readonly Color ActiveAccent = Color.FromArgb(41, 41, 46);
     
     public static readonly Color Primary = Color.FromArgb(59, 130, 246); // Blue-500
     public static readonly Color PrimaryHover = Color.FromArgb(37, 99, 235);

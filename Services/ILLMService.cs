@@ -15,7 +15,8 @@ public interface ILLMService
     IReadOnlyList<ChatMessage> History { get; }
 
     event Action<string>? OnPromptSent;
-    Task<string> ChatAsync(string prompt, AppSettings settings, bool addToHistory = true, bool leanContext = false, System.Threading.CancellationToken ct = default);
+    Task<string> ChatAsync(string prompt, AppSettings settings, bool addToHistory = true, bool leanContext = false, string? systemPromptOverride = null, System.Threading.CancellationToken ct = default);
+
     void Reset();
     void ClearHistory();
     void SetWorkingDirectory(string path);

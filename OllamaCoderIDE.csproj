@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -11,5 +11,12 @@
   <ItemGroup>
     <PackageReference Include="Scintilla5.NET" Version="5.4.1" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Instructions\*.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 
 </Project>

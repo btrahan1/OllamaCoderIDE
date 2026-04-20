@@ -8,6 +8,32 @@ namespace OllamaCoderIDE.Services;
 
 public class SurgicalEditor
 {
+    public static string PreviewEdit(string content, string searchContent, string replacementContent)
+    {
+        // 0. Pre-check: Is the change ALREADY applied?
+        if (content.Contains(replacementContent) && !content.Contains(searchContent))
+            return content;
+
+        // 1. Try EXACT match first
+        int firstIndex = content.IndexOf(searchContent);
+        int lastIndex = content.LastIndexOf(searchContent);
+
+        if (firstIndex != -1 && firstIndex == lastIndex)
+        {
+            return content.Substring(0, firstIndex) + replacementContent + content.Substring(firstIndex + searchContent.Length);
+        }
+
+        // 2. Whitespace-Agnostic fallback
+        var (cleanFirst, cleanLast, originalStart, originalEnd) = FindFuzzyMatch(content, searchContent);
+
+        if (cleanFirst != -1 && cleanFirst == cleanLast)
+        {
+            return content.Substring(0, originalStart) + replacementContent + content.Substring(originalEnd);
+        }
+
+        return content; // No change if not found or not unique
+    }
+
     public static string ReplaceContent(string filePath, string searchContent, string replacementContent)
     {
         if (!File.Exists(filePath))

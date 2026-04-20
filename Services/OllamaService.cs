@@ -122,11 +122,50 @@ public class OllamaService : ILLMService
         catch { return new List<string> { "qwen2.5-coder:7b" }; }
     }
 
-    public async Task<string> ChatAsync(string prompt, AppSettings settings, bool addToHistory = true, bool leanContext = false, System.Threading.CancellationToken ct = default)
+    public async Task<string> ChatAsync(string prompt, AppSettings settings, bool addToHistory = true, bool leanContext = false, string? systemPromptOverride = null, System.Threading.CancellationToken ct = default)
     {
-        var fullSystemPrompt = settings.AgentSystemPrompt;
+        var fullSystemPrompt = systemPromptOverride ?? settings.AgentSystemPrompt;
+
+        
+        if (settings.FullFileReplacementOnly)
+        {
+            // Strip surgical_edit from the tool list
+            fullSystemPrompt = fullSystemPrompt.Replace("- surgical_edit(path, search, replace)", "");
+            // Add mandatory instruction
+            fullSystemPrompt += "\n\n### MANDATORY: FULL FILE REPLACEMENT MODE ACTIVE\nYou are currently restricted to FULL FILE REPLACEMENT ONLY. NEVER use 'surgical_edit'. Always use 'write_file' and provide the complete, finalized content of the file. Do not use placeholders or omit existing code.";
+        }
+
         if (!leanContext && !string.IsNullOrEmpty(_currentProjectMap))
-            fullSystemPrompt += "\n\n" + _currentProjectMap;
+        {
+            // PROACTIVE: Context Budgeting (assuming 1 token ≈ 4 characters)
+            // Aim to keep the prompt under ~12k tokens for a 16k context to allow 4k of output headroom.
+            int maxChars = Math.Max(settings.NumCtx * 3, 24000); // 16k context * 3 = 48k chars safety limit
+            
+            string projectMapToAdd = _currentProjectMap;
+            int currentApproxLength = fullSystemPrompt.Length + _currentProjectMap.Length + 
+                                       ContextFiles.Sum(f => f.Content?.Length ?? 0) + 
+                                       (_history.Sum(h => h.content?.Length ?? 0));
+
+            if (currentApproxLength > 48000) 
+            {
+                // Use a shallow map (Depth 2) to stay under budget while maintaining spatial awareness
+                projectMapToAdd = _projectMapService.BuildMap(WorkingDirectory, 2) + "\n(Note: Map is shallow to save tokens. Use list_directory for deeper details.)";
+            }
+            else if (currentApproxLength > maxChars && _currentProjectMap.Length > 500)
+            {
+                // Trim the project map to keep the prompt from choking the LLM
+                int allowedMapLength = Math.Max(500, maxChars - (currentApproxLength - _currentProjectMap.Length));
+                if (allowedMapLength < _currentProjectMap.Length)
+                {
+                    projectMapToAdd = _currentProjectMap.Substring(0, allowedMapLength) + "\n... [Project Map Trimmed for Context Budget]";
+                }
+            }
+            
+            fullSystemPrompt += "\n\n" + projectMapToAdd;
+        }
+
+        if (!string.IsNullOrEmpty(WorkingDirectory))
+            fullSystemPrompt += $"\n\nCURRENT PROJECT ROOT: {WorkingDirectory}\nAll path parameters must be absolute and start with this root.";
             
         // 1. Add explicitly pinned context files
         if (ContextFiles.Count > 0)
@@ -134,13 +173,15 @@ public class OllamaService : ILLMService
             fullSystemPrompt += "\n\n## PINNED CONTEXT FILES (Reference these for your work):";
             foreach (var file in ContextFiles)
             {
-                fullSystemPrompt += $"\n---\nFile: {file.Path}\nContent:\n{file.Content}\n---";
+                fullSystemPrompt += $"\n\n=== 📂 FILE: {file.Path} ===\n{file.Content}\n=======================";
             }
         }
 
         // 2. Add active file context (if not already pinned)
         if (!string.IsNullOrEmpty(ActiveFilePath) && !ContextFiles.Any(f => f.Path == ActiveFilePath))
-            fullSystemPrompt += $"\n\n## ACTIVE FILE CONTEXT:\nPath: {ActiveFilePath}\nContent:\n{ActiveFileContent}";
+        {
+            fullSystemPrompt += $"\n\n## ACTIVE FILE CONTEXT:\n=== 📂 FILE: {ActiveFilePath} ===\n{ActiveFileContent}\n=======================";
+        }
 
         var messages = new List<ChatMessage> { new ChatMessage("system", fullSystemPrompt) };
         messages.AddRange(_history);
@@ -151,7 +192,7 @@ public class OllamaService : ILLMService
             model = settings.SelectedModel,
             messages = messages,
             stream = false,
-            options = new { temperature = settings.Temperature, num_ctx = Math.Max(settings.NumCtx, 8192) }
+            options = new { temperature = settings.Temperature, num_ctx = Math.Max(settings.NumCtx, 16384) }
         };
 
         // Report full prompt log before sending
@@ -186,5 +227,23 @@ public class OllamaService : ILLMService
         }
 
         return assistantContent;
+    }
+
+    private string GetMarkdownLanguage(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return "";
+        string ext = Path.GetExtension(path).ToLower();
+        return ext switch
+        {
+            ".razor" => "razor",
+            ".cs" => "csharp",
+            ".css" => "css",
+            ".html" => "html",
+            ".json" => "json",
+            ".xml" => "xml",
+            ".csproj" => "xml",
+            ".sln" => "text",
+            _ => ""
+        };
     }
 }

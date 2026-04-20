@@ -95,7 +95,7 @@ public partial class Form1 : Form
         _mainSplitter = new SplitContainer
         {
             Dock = DockStyle.Fill,
-            SplitterWidth = 5,
+            SplitterWidth = 2,
             BackColor = ThemeManager.Border,
             Panel1Collapsed = false
         };
@@ -105,7 +105,7 @@ public partial class Form1 : Form
         {
             Dock = DockStyle.Fill,
             Orientation = Orientation.Horizontal,
-            SplitterWidth = 5,
+            SplitterWidth = 2,
             BackColor = ThemeManager.Border
         };
         _mainSplitter.Panel2.Controls.Add(_rightContentSplitter);
@@ -114,7 +114,7 @@ public partial class Form1 : Form
         {
             Dock = DockStyle.Fill,
             Orientation = Orientation.Vertical,
-            SplitterWidth = 5,
+            SplitterWidth = 2,
             BackColor = ThemeManager.Border
         };
         _rightContentSplitter.Panel1.Controls.Add(_editorChatSplitter);
@@ -146,7 +146,7 @@ public partial class Form1 : Form
         _editorChatSplitter.Panel1.Controls.Add(_mainPanel);
 
         // Chat Panel - initially using current service
-        _chat = new ChatPanelControl(_currentService, _settings, _terminal, _planControl) { Dock = DockStyle.Fill };
+        _chat = new ChatPanelControl(_currentService, _settings, _terminal, _searchService, _planControl) { Dock = DockStyle.Fill };
         _chat.OnApplyCodeRequested += (code) => {
             string? currentPath = _tabEditor.CurrentFilePath;
             if (!string.IsNullOrEmpty(currentPath))
@@ -208,8 +208,15 @@ public partial class Form1 : Form
 
         // Wire Toolbar to Chat
         _toolbar.OnActionRequested += (action) => _chat.PerformAction(action);
+        _toolbar.OnProjectTypeChanged += (type) => {
+            _settings.Current.ProjectType = type;
+            _settings.Save();
+            SyncProjectModeToServices();
+        };
+        _toolbar.SetProjectTypes(_settings.GetProjectTypes(), _settings.Current.ProjectType);
         
         UpdateToolbarStatus();
+
     }
 
     private void HandleFileChange(string path)
@@ -258,8 +265,17 @@ public partial class Form1 : Form
         // Re-inject the service into existing controls
         // To avoid deep refactors, I'll add a method to ChatPanelControl
         _chat.UpdateService(_currentService);
+        SyncProjectModeToServices();
         UpdateToolbarStatus();
     }
+
+    private void SyncProjectModeToServices()
+    {
+        // Force refresh of the system prompt in services
+        // We'll update the ChatPanelControl to use the new composed prompt
+        _chat.RefreshSystemPrompt();
+    }
+
 
     private void SyncContextToServices()
     {

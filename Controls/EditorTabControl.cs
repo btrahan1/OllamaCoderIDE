@@ -96,33 +96,65 @@ public class EditorTabControl : BaseStyledControl
 
     private void OnDrawItem(object? sender, DrawItemEventArgs e)
     {
+        if (e.Index < 0 || e.Index >= _tabControl.TabCount) return;
+
         var tabPage = _tabControl.TabPages[e.Index];
         var tabRect = _tabControl.GetTabRect(e.Index);
         var entry = _openFiles.Values.FirstOrDefault(x => x.Tab == tabPage);
+        bool isSelected = e.State.HasFlag(DrawItemState.Selected);
 
-        // 1. Background
-        using (var brush = new SolidBrush(e.State == DrawItemState.Selected ? ThemeManager.Sidebar : ThemeManager.Background))
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+        // 1. Background with subtle Active Glow
+        using (var brush = new SolidBrush(isSelected ? ThemeManager.Sidebar : ThemeManager.Background))
         {
             e.Graphics.FillRectangle(brush, tabRect);
         }
 
-        // 2. Text
-        string text = tabPage.Text;
-        TextRenderer.DrawText(e.Graphics, text, ThemeManager.TextFont, tabRect, 
-            e.State == DrawItemState.Selected ? ThemeManager.TextMain : ThemeManager.TextSecondary, 
-            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
-
-        // 3. Context Brain Icon (🧠 or Lightbulb if brain emoji fails)
-        // Draw 🧠 icon on the right
-        var brainRect = new Rectangle(tabRect.Right - 42, tabRect.Y + 6, 18, 18);
-        using (var brainBrush = new SolidBrush(entry.InContext ? ThemeManager.Success : Color.Gray))
+        // 2. Active Tab Accent (Bottom Blue Bar)
+        if (isSelected)
         {
-            e.Graphics.FillEllipse(brainBrush, brainRect); // Simulating a simple brain/context indicator
+            using (var accentBrush = new SolidBrush(ThemeManager.Primary))
+            {
+                // Draw a 2px bar at the very bottom of the tab
+                e.Graphics.FillRectangle(accentBrush, tabRect.X + 2, tabRect.Bottom - 3, tabRect.Width - 4, 3);
+            }
         }
 
-        // 4. Close 'X' button
-        var closeRect = new Rectangle(tabRect.Right - 20, tabRect.Y + 6, 16, 16);
-        e.Graphics.DrawString("x", new Font("Segoe UI", 9f), Brushes.Gray, closeRect);
+        // 3. Text
+        string text = tabPage.Text;
+        TextRenderer.DrawText(e.Graphics, text, ThemeManager.TextFont, new Rectangle(tabRect.X + 5, tabRect.Y, tabRect.Width - 50, tabRect.Height), 
+            isSelected ? ThemeManager.TextMain : ThemeManager.TextSecondary, 
+            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+
+        // 4. Context Brain Indicator (Refined Circle)
+        var brainRect = new Rectangle(tabRect.Right - 44, tabRect.Y + (tabRect.Height - 14) / 2, 12, 12);
+        if (entry.InContext)
+        {
+            // Successful context indicator: Primary color with a subtle outer ring
+            using (var p = new Pen(ThemeManager.Primary, 1.5f))
+                e.Graphics.DrawEllipse(p, brainRect);
+            using (var b = new SolidBrush(ThemeManager.Primary))
+            {
+                var inner = brainRect;
+                inner.Inflate(-2, -2);
+                e.Graphics.FillEllipse(b, inner);
+            }
+        }
+        else
+        {
+            // Silent context indicator: Subtle border
+            using (var p = new Pen(ThemeManager.Border, 1.5f))
+                e.Graphics.DrawEllipse(p, brainRect);
+        }
+
+        // 5. Close 'X' button (Simplified and Sharp)
+        var closeRect = new Rectangle(tabRect.Right - 22, tabRect.Y + (tabRect.Height - 16) / 2, 16, 16);
+        using (var f = new Font("Segoe UI", 9f, FontStyle.Bold))
+        {
+            TextRenderer.DrawText(e.Graphics, "✕", f, closeRect, Color.FromArgb(100, 100, 100), 
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
     }
 
     private void OnMouseDown(object? sender, MouseEventArgs e)

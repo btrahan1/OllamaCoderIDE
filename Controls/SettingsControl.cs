@@ -24,6 +24,7 @@ public class SettingsControl : BaseStyledControl
     private NumericUpDown _ctxNum = null!;
     private NumericUpDown _historyNum = null!;
     private CheckBox _autoExecCheck = null!;
+    private CheckBox _fullFileModeCheck = null!;
 
     public SettingsControl(SettingsService settingsService, ILLMService ollamaService, ILLMService geminiService)
     {
@@ -143,6 +144,16 @@ public class SettingsControl : BaseStyledControl
         };
         _autoExecCheck.CheckedChanged += (s, e) => _settingsService.Current.AutoExecuteTools = _autoExecCheck.Checked;
         layout.Controls.Add(_autoExecCheck);
+        
+        _fullFileModeCheck = new CheckBox
+        {
+            Text = "Full File Replacement only",
+            ForeColor = ThemeManager.TextMain,
+            AutoSize = true,
+            Margin = new Padding(0, 15, 0, 0)
+        };
+        _fullFileModeCheck.CheckedChanged += (s, e) => _settingsService.Current.FullFileReplacementOnly = _fullFileModeCheck.Checked;
+        layout.Controls.Add(_fullFileModeCheck);
 
         var footerPanel = new FlowLayoutPanel { Width = 450, Height = 60, Margin = new Padding(0, 30, 0, 0) };
         
@@ -190,6 +201,7 @@ public class SettingsControl : BaseStyledControl
         _systemPromptBox.Text = s.AgentSystemPrompt;
         _historyNum.Value = s.MaxHistoryMessages;
         _autoExecCheck.Checked = s.AutoExecuteTools;
+        _fullFileModeCheck.Checked = s.FullFileReplacementOnly;
         
         _providerCombo.SelectedItem = s.Provider.ToString();
         _geminiKeyBox.Text = s.GeminiApiKey;
